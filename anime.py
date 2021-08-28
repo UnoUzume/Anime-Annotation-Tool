@@ -1,4 +1,5 @@
 from flask import Flask, render_template, Response, make_response, request, send_from_directory
+from flask_cors import CORS
 from furl import furl
 import requests
 from datetime import timedelta
@@ -14,10 +15,14 @@ import numpy as np
 from PIL import Image
 from cv2 import cv2
 
+from api import api
+
 app = Flask(__name__,
-            static_folder="./dist/static",
+            static_folder="./static",
             template_folder="./dist")
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(seconds=5)
+app.register_blueprint(api, url_prefix='/api')
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
 @app.route('/')
