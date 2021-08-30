@@ -31,6 +31,8 @@ export default {
   methods: {
     handleChange(value) {
       console.log(value)
+      console.log('func', this.modelValue)
+      // $emit('update:title', $event.target.value)
     },
   },
   computed: {

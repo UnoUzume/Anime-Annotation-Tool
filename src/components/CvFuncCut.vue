@@ -78,13 +78,39 @@ export default {
   },
   props: {
     name: String,
+    argForm0: {
+      type: Object,
+      // 对象或数组默认值必须从一个工厂函数获取
+      default() {
+        return {
+          name: '',
+          region: '',
+          date1: '',
+          date2: '',
+          delivery: false,
+          type: [],
+          resource: '',
+          desc: '',
+        }
+      },
+    },
   },
+  emits: ['update:argForm'],
   components: {
     CvCollapseItem,
   },
   methods: {
     onSubmit() {
       console.log('submit!')
+    },
+  },
+  watch: {
+    argForm: {
+      handler(val, oldVal) {
+        this.$emit('update:argForm', val)
+        console.log('funcCut', val)
+      },
+      deep: true,
     },
   },
 }

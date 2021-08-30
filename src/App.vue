@@ -26,10 +26,15 @@
         <div class="ann-label__box">
           <div
             class="ann-label__item"
+            :class="{ active: label.id == active_label.id }"
             v-for="label in label_list"
             :key="label.id"
+            @click="whenClickLabel(label)"
           >
-            <div class="ann-label__color"></div>
+            <div
+              class="ann-label__color"
+              :style="{ backgroundColor: '#' + label.bgc }"
+            ></div>
             <span class="ann-label__id">{{ label.id }}</span>
             <input
               type="text"
@@ -39,6 +44,76 @@
             />
           </div>
         </div>
+
+        <label>
+          笔刷大小：
+          <input
+            type="number"
+            name="frame-num"
+            min="1"
+            max="50"
+            v-model="annTool.brushSize"
+          />
+        </label>
+        <br />
+        <label>
+          画布透明度：
+          <input type="number" value="0.7" min="0" max="1" step="0.1" />
+        </label>
+        <br />
+        <label>
+          画布显示：
+          <input
+            type="checkbox"
+            class="ann-tool__color-canvas-visible"
+            checked
+          />
+        </label>
+        <br />
+        <label>
+          分割结果透明度：
+          <input
+            type="number"
+            class="ann-tool__color-water-alpha"
+            value="0.7"
+            min="0"
+            max="1"
+            step="0.1"
+          />
+        </label>
+        <br />
+        <label>
+          分割结果显示：
+          <input
+            type="checkbox"
+            class="ann-tool__color-water-visible"
+            checked
+          />
+        </label>
+        <br />
+
+        <el-button size="mini" class="ann-tool__canvas-resize"
+          >重置画布大小和位置</el-button
+        >
+        <el-button size="mini" class="ann-tool__canvas-clear"
+          >清空画布</el-button
+        >
+        <br />
+        <el-button size="mini" class="ann-tool__canvas-undo">撤销</el-button>
+        <el-button size="mini" class="ann-tool__canvas-redo">反撤销</el-button>
+        <br />
+        <span>
+          撤销队列：
+          <span class="ann-tool__undo-length">0</span>
+        </span>
+        <span>
+          反撤销队列：
+          <span class="ann-tool__redo-length">0</span>
+        </span>
+        <br />
+        <el-button size="mini" class="ann-tool__canvas-gen-water"
+          >生成分割</el-button
+        >
       </el-aside>
       <el-container>
         <el-header class="workspace__header" height="54px">
@@ -77,43 +152,15 @@
           </el-row>
         </el-header>
         <el-main class="workspace">
-          <div class="workspace__canvas-wrapper">
-            <div
-              class="workspace__canvas-box"
-              data-is-moving="false"
-              data-xc="0"
-              data-yc="0"
-            >
-              <!-- src="{{ url_for('static', filename = 'images/canvas.png' ) }}" -->
-              <img class="workspace__frame" src="/static/canvas.png" alt="" />
-              <canvas
-                class="workspace__color-water"
-                width="960"
-                height="540"
-              ></canvas>
-              <canvas
-                class="workspace__mask-canvas"
-                width="960"
-                height="540"
-              ></canvas>
-              <canvas
-                class="workspace__color-canvas"
-                width="960"
-                height="540"
-              ></canvas>
-            </div>
-            <div class="workspace__cursor">
-              <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
-                <rect width="20" height="20"></rect>
-              </svg>
-            </div>
-          </div>
+          <work-space />
         </el-main>
         <el-footer class="workspace__footer" height="120px"> </el-footer>
       </el-container>
       <el-aside class="page-body__right" width="320px">
         <el-scrollbar>
           <cv-func v-model="cvFunc" />
+
+          <el-button size="mini" @click="showfunc">下一关键帧</el-button>
         </el-scrollbar>
       </el-aside>
     </el-container>
@@ -121,15 +168,25 @@
 </template>
 
 <script>
+import { reactive } from 'vue'
 import CvFunc from './components/CvFunc.vue'
 import CvCollapse from './components/CvCollapse.vue'
 import CvCollapseItem from './components/CvCollapseItem.vue'
+import WorkSpace from './components/WorkSpace.vue'
 export default {
   data() {
     return {
       cvFunc: [
-        { func: 'paint', name: 'func1' },
-        { func: 'cut', name: 'func2' },
+        {
+          func: 'cut',
+          name: 'func1',
+          argForm: {},
+        },
+        {
+          func: 'cut',
+          name: 'func2',
+          argForm: {},
+        },
       ],
       frameNum: 0,
       frameStep: 0,
@@ -137,6 +194,8 @@ export default {
         user: '',
         region: '',
       },
+      annTool: { brushSize: 20 },
+      active_label: { id: '10', name: '神无月环', bgc: '9ce06f' },
       label_list: [
         { id: '250', name: 'background', bgc: '4e4e4e' },
         { id: '1', name: '四之宫京夜', bgc: '7c527b' },
@@ -150,7 +209,19 @@ export default {
       activeNames: [],
       checked: true,
       checked2: true,
+      value1: 1,
     }
+  },
+  provide() {
+    return {
+      annTool: this.annTool,
+      active_label: this.active_label,
+    }
+  },
+  created() {
+    this.$nextTick(() => {
+      this.whenClickLabel(this.label_list[0])
+    })
   },
   methods: {
     onSubmit() {
@@ -162,11 +233,19 @@ export default {
     doThis(val) {
       console.log('doThis!' + val)
     },
+    showfunc() {
+      console.log(this.cvFunc)
+    },
+    whenClickLabel(label) {
+      //https://www.jianshu.com/p/94935f134741
+      Object.assign(this.active_label, label)
+    },
   },
   components: {
     CvFunc,
     CvCollapse,
     CvCollapseItem,
+    WorkSpace,
   },
 }
 </script>
@@ -184,7 +263,11 @@ body,
   font-size: 1rem;
 }
 .el-button {
+  min-height: 20px;
   padding: 0px 7px;
+}
+.el-button + .el-button {
+  margin-left: 6px;
 }
 .workspace__header-form {
   display: inline-block;
@@ -192,7 +275,7 @@ body,
 .el-form-item {
   margin-bottom: 5px !important;
 }
-.workspace__header-form .el-input-number {
+.el-input-number {
   width: 5em;
 }
 .el-input-number.is-controls-right .el-input__inner {
@@ -242,7 +325,7 @@ body,
   flex: none;
   height: 30px;
   width: 30px;
-  background-color: #9ce06f;
+  background-color: #505050;
   display: inline;
 }
 .ann-label__item .ann-label__name {
@@ -276,59 +359,16 @@ body,
   border-top: 1px solid #c3c3c3;
   border-bottom: 1px solid #c3c3c3;
 }
-
-.workspace__canvas-wrapper {
-  width: calc(100% - 10px);
-  height: calc(100% - 10px);
-  margin: 5px;
-  background-color: rgb(255, 255, 255);
-  overflow: hidden;
-  position: relative;
-}
-.workspace__canvas-box {
-  height: 100%;
-  width: 100%;
-  position: relative;
-  background-color: white;
-  /* overflow: hidden; */
-}
-.workspace__frame {
-  /* max-width: 100%;
-    max-height: 100%; */
-  height: 100%;
-  /* width: 100%; */
-}
-.workspace__color-water {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  height: 100%;
-  opacity: 0.7;
-}
-.workspace__mask-canvas {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  height: 100%;
-  opacity: 0;
-}
-.workspace__color-canvas {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  /* max-width: 100%;
-    max-height: 100%; */
-  height: 100%;
-  opacity: 0.7;
-}
-.workspace__cursor {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  width: 20px;
-  height: 20px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  opacity: 0.7;
+.el-slider {
+  --el-slider-main-background-color: var(--el-color-primary);
+  --el-slider-runway-background-color: var(--el-border-color-light);
+  --el-slider-stop-background-color: var(--el-color-white);
+  --el-slider-disable-color: var(--el-text-color-placeholder);
+  --el-slider-margin: 8px 0;
+  --el-slider-border-radius: 3px;
+  --el-slider-height: 4px;
+  --el-slider-button-size: 14px;
+  --el-slider-button-wrapper-size: 24px;
+  --el-slider-button-wrapper-offset: -10px;
 }
 </style>
