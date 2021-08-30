@@ -1,24 +1,13 @@
 import { createApp } from 'vue'
-import { createStore } from 'vuex'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import App from './App.vue'
-
-const store = createStore({
-  state() {
-    return {
-      count: 0,
-    }
-  },
-  mutations: {
-    increment(state) {
-      state.count++
-    },
-  },
-})
+import store from './store.js'
 
 const app = createApp(App)
-const win = window //
+
+//https://www.jianshu.com/p/5d03a8cadbc4
+const win = window
 if (process.env.NODE_ENV === 'development') {
   if ('__VUE_DEVTOOLS_GLOBAL_HOOK__' in win) {
     // 这里__VUE_DEVTOOLS_GLOBAL_HOOK__.Vue赋值一个createApp实例

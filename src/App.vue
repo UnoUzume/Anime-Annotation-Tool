@@ -47,57 +47,31 @@
 
         <label>
           笔刷大小：
-          <input
-            type="number"
-            name="frame-num"
-            min="1"
-            max="50"
-            v-model="annTool.brushSize"
-          />
+          <input type="number" min="1" max="50" v-model="annTool.brushSize" />
         </label>
         <br />
-        <label>
-          画布透明度：
-          <input type="number" value="0.7" min="0" max="1" step="0.1" />
-        </label>
+        <label>画布：</label>
+        <input
+          type="number"
+          min="0"
+          max="1"
+          step="0.1"
+          v-model="annTool.colorCanvasAlpha"
+        />
+        <input type="checkbox" v-model="annTool.isShowColorCanvas" />
         <br />
-        <label>
-          画布显示：
-          <input
-            type="checkbox"
-            class="ann-tool__color-canvas-visible"
-            checked
-          />
-        </label>
+        <label>分割结果：</label>
+        <input
+          type="number"
+          min="0"
+          max="1"
+          step="0.1"
+          v-model="annTool.colorWaterAlpha"
+        />
+        <input type="checkbox" v-model="annTool.isShowColorWater" />
         <br />
-        <label>
-          分割结果透明度：
-          <input
-            type="number"
-            class="ann-tool__color-water-alpha"
-            value="0.7"
-            min="0"
-            max="1"
-            step="0.1"
-          />
-        </label>
-        <br />
-        <label>
-          分割结果显示：
-          <input
-            type="checkbox"
-            class="ann-tool__color-water-visible"
-            checked
-          />
-        </label>
-        <br />
-
-        <el-button size="mini" class="ann-tool__canvas-resize"
-          >重置画布大小和位置</el-button
-        >
-        <el-button size="mini" class="ann-tool__canvas-clear"
-          >清空画布</el-button
-        >
+        <el-button size="mini" @click="canvasResize">重置画布</el-button>
+        <el-button size="mini" @click="canvasClear">清空画布</el-button>
         <br />
         <el-button size="mini" class="ann-tool__canvas-undo">撤销</el-button>
         <el-button size="mini" class="ann-tool__canvas-redo">反撤销</el-button>
@@ -152,7 +126,7 @@
           </el-row>
         </el-header>
         <el-main class="workspace">
-          <work-space />
+          <work-space ref="workSpace" />
         </el-main>
         <el-footer class="workspace__footer" height="120px"> </el-footer>
       </el-container>
@@ -194,8 +168,14 @@ export default {
         user: '',
         region: '',
       },
-      annTool: { brushSize: 20 },
-      active_label: { id: '10', name: '神无月环', bgc: '9ce06f' },
+      annTool: {
+        brushSize: 20,
+        colorCanvasAlpha: 0.7,
+        isShowColorCanvas: true,
+        colorWaterAlpha: 0.7,
+        isShowColorWater: true,
+      },
+      active_label: {},
       label_list: [
         { id: '250', name: 'background', bgc: '4e4e4e' },
         { id: '1', name: '四之宫京夜', bgc: '7c527b' },
@@ -239,6 +219,12 @@ export default {
     whenClickLabel(label) {
       //https://www.jianshu.com/p/94935f134741
       Object.assign(this.active_label, label)
+    },
+    canvasClear() {
+      this.$refs.workSpace.canvasClear()
+    },
+    canvasResize() {
+      this.$refs.workSpace.canvasResize()
     },
   },
   components: {

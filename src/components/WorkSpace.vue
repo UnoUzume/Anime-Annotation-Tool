@@ -3,6 +3,7 @@
     <div
       class="workspace__canvas-box"
       ref="canvasBox"
+      :style="{ transform: `scale(${this.boxScale})` }"
       @mousedown="whenMouseDown($event)"
       @mousewheel="whenMouseWheel($event)"
     >
@@ -12,6 +13,8 @@
         width="960"
         height="540"
         ref="colorWater"
+        :style="{ opacity: this.annTool.colorWaterAlpha }"
+        v-show="this.annTool.isShowColorWater"
       ></canvas>
       <canvas
         class="workspace__mask-canvas"
@@ -24,48 +27,52 @@
         width="960"
         height="540"
         ref="colorCanvas"
+        :style="{ opacity: this.annTool.colorCanvasAlpha }"
+        v-show="this.annTool.isShowColorCanvas"
       ></canvas>
     </div>
-    <div class="workspace__cursor" ref="cursor" :style="cusorStyle">
+    <div class="workspace__cursor" :style="cusorStyle" ref="cursor">
       <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
-        <rect width="20" height="20"></rect>
+        <rect
+          :width="annTool.brushSize"
+          :height="annTool.brushSize"
+          :style="{ fill: '#' + this.active_label.bgc }"
+        ></rect>
       </svg>
     </div>
   </div>
 </template>
 
 <script>
-import CvCollapse from './CvCollapse.vue'
-import CvFuncPaint from './CvFuncPaint.vue'
-import CvFuncCut from './CvFuncCut.vue'
 export default {
   data() {
     return {
-      activeNames: [],
-      change: 'two',
       maskCanvas_ctx: null,
       colorCanvas_ctx: null,
       colorWater_ctx: null,
-      colorCanvasHeight: 0,
+      boxHeight: 0,
+      boxScale: 1,
+      cursorSize: 20,
+      isEmpty: false,
       isDrawMoving: false,
       isCanvasMoving: false,
       canvasXc: 0,
       canvasYc: 0,
     }
   },
-  // inject: {
-  //   annTool: {
-  //     default: () => {},
-  //   },
-  // },
-  inject: ['annTool', 'active_label'],
-  emits: ['update:modelValue'],
-  props: {
-    func: String,
-    name: String,
-    modelValue: Array,
+  computed: {
+    cusorScale() {
+      return this.boxHeight / 540
+    },
+    cusorStyle() {
+      return {
+        transform: `translate(-50%, -50%) scale(${this.cusorScale})`,
+        width: this.annTool.brushSize + 'px',
+        height: this.annTool.brushSize + 'px',
+      }
+    },
   },
-  components: { CvCollapse, CvFuncPaint, CvFuncCut },
+  inject: ['annTool', 'active_label'],
   created() {
     this.$nextTick(() => {
       // this.cursor = this.$refs.cursor
@@ -77,10 +84,11 @@ export default {
       document.addEventListener('mousemove', this.drawMoving)
       document.addEventListener('mousemove', this.canvasMoving)
       document.addEventListener('mouseup', this.whenMouseUp)
-
-      this.colorCanvasHeight =
-        this.$refs.colorCanvas.getBoundingClientRect().height
+      this.boxHeight = this.$refs.canvasBox.getBoundingClientRect().height
     })
+  },
+  mounted() {
+    window.canvasClear = this.canvasClear
   },
   methods: {
     cursorMove(e) {
@@ -121,7 +129,7 @@ export default {
         // }
         // this.maskCanvas_ctx.fillStyle = '#' + fill_hex + fill_hex + fill_hex
         // this.maskCanvas_ctx.fillRect(x, y, halfSize * 2, halfSize * 2)
-        this.$refs.colorCanvas.dataset.isEmpty = false
+        this.isEmpty = false
       } else {
         let doubleSize = this.annTool.brushSize * 2
         x = x - halfSize
@@ -135,60 +143,42 @@ export default {
       this.$refs.canvasBox.style.left = e.pageX - this.canvasXc + 'px'
       this.$refs.canvasBox.style.top = e.pageY - this.canvasYc + 'px'
     },
-    // whenMouseWheel(e) {
-    //   if (e.shiftKey) {
-    //     let scale = parseFloat(
-    //       (
-    //         $('.workspace__canvas-box')[0].style.transform || `scale(1)`
-    //       ).replace(/[^0-9.]/gi, '')
-    //     )
-    //     let size = e.deltaY * 0.1
-    //     if (scale + size >= 0.5) {
-    //       $('.workspace__canvas-box')[0].style.transform = `scale(${
-    //         scale + size
-    //       })`
-    //       $('.ann-tool__brush-size').val(
-    //         (parseFloat($('.ann-tool__brush-size').val()) * scale) /
-    //           (scale + size)
-    //       )
-    //     }
-    //     //原文链接：https://blog.csdn.net/qq_36281882/article/details/107056406
-    //     // cursorMove(e);
-    //   } else {
-    //     let scale = parseFloat(
-    //       (
-    //         $('.workspace__cursor')[0].style.transform ||
-    //         `translate(-50%, -50%) scale(1)`
-    //       )
-    //         .match(/scale\([0-9.]+\)/)[0]
-    //         .replace(/[^0-9.]/gi, '')
-    //     )
-    //     let size = e.deltaY * 0.1
-    //     $(
-    //       '.workspace__cursor'
-    //     )[0].style.transform = `translate(-50%, -50%) scale(${scale + size})`
-
-    //     $('.ann-tool__brush-size').val(
-    //       parseInt($('.ann-tool__brush-size').val()) + e.deltaY
-    //     )
-    //     if ($('.ann-tool__brush-size').val() < 1) {
-    //       $('.ann-tool__brush-size').val(1)
-    //     } else if ($('.ann-tool__brush-size').val() > 50) {
-    //       $('.ann-tool__brush-size').val(50)
-    //     }
-    //   }
-    // },
-  },
-  computed: {
-    getFullComName() {
-      return 'cv-func-' + this.func
-    },
-    cusorStyle() {
-      return {
-        transform: `translate(-50%, -50%) scale(${
-          this.colorCanvasHeight / 540
-        })`,
+    whenMouseWheel(e) {
+      let wheel = e.wheelDelta > 0 ? 1 : -1
+      let dscale = wheel * 0.1
+      if (e.shiftKey) {
+        let newScale = this.boxScale + dscale
+        if (newScale >= 0.5) {
+          this.annTool.brushSize *= this.boxScale / newScale
+          this.boxScale += dscale
+        }
+        //原文链接：https://blog.csdn.net/qq_36281882/article/details/107056406
+      } else {
+        this.annTool.brushSize += wheel
+        if (this.annTool.brushSize < 1) {
+          this.annTool.brushSize = 1
+        } else if (this.annTool.brushSize > 50) {
+          this.annTool.brushSize = 50
+        }
       }
+    },
+    canvasClear() {
+      this.colorCanvas_ctx.clearRect(0, 0, 960, 540)
+      this.maskCanvas_ctx.clearRect(0, 0, 960, 540)
+      this.isEmpty = true
+    },
+    canvasResize() {
+      this.annTool.brushSize *= this.boxScale
+      this.boxScale = 1
+      this.$refs.canvasBox.style.left = '0px'
+      this.$refs.canvasBox.style.top = '0px'
+    },
+  },
+  watch: {
+    boxScale() {
+      this.$nextTick(() => {
+        this.boxHeight = this.$refs.canvasBox.getBoundingClientRect().height
+      })
     },
   },
 }
@@ -221,7 +211,6 @@ export default {
   left: 0px;
   top: 0px;
   height: 100%;
-  opacity: 0.7;
 }
 .workspace__mask-canvas {
   position: absolute;
@@ -237,14 +226,11 @@ export default {
   /* max-width: 100%;
     max-height: 100%; */
   height: 100%;
-  opacity: 0.7;
 }
 .workspace__cursor {
   position: absolute;
   left: 0px;
   top: 0px;
-  width: 20px;
-  height: 20px;
   transform: translate(-50%, -50%);
   pointer-events: none;
   opacity: 0.7;
