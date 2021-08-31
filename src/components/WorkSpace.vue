@@ -7,28 +7,28 @@
       @mousedown="whenMouseDown($event)"
       @mousewheel="whenMouseWheel($event)"
     >
-      <img class="workspace__frame" src="/static/canvas.png" alt="" />
+      <img class="workspace__frame" :src="frameSrc" alt="" />
       <canvas
         class="workspace__color-water"
         width="960"
         height="540"
-        ref="colorWater"
-        :style="{ opacity: this.annTool.colorWaterAlpha }"
-        v-show="this.annTool.isShowColorWater"
+        ref="cWater"
+        :style="{ opacity: this.annTool.cWaterAlpha }"
+        v-show="this.annTool.isShowCWater"
       ></canvas>
       <canvas
         class="workspace__mask-canvas"
         width="960"
         height="540"
-        ref="maskCanvas"
+        ref="mCan"
       ></canvas>
       <canvas
         class="workspace__color-canvas"
         width="960"
         height="540"
-        ref="colorCanvas"
-        :style="{ opacity: this.annTool.colorCanvasAlpha }"
-        v-show="this.annTool.isShowColorCanvas"
+        ref="cCan"
+        :style="{ opacity: this.annTool.cCanAlpha }"
+        v-show="this.annTool.isShowCCan"
       ></canvas>
     </div>
     <div class="workspace__cursor" :style="cusorStyle" ref="cursor">
@@ -44,12 +44,16 @@
 </template>
 
 <script>
+import axios from 'axios'
+import pako from 'pako'
 export default {
   data() {
     return {
-      maskCanvas_ctx: null,
-      colorCanvas_ctx: null,
-      colorWater_ctx: null,
+      labelLUT: null,
+      frameSrc: '/static/canvas.png',
+      mCan_ctx: null,
+      cCan_ctx: null,
+      cWater_ctx: null,
       boxHeight: 0,
       boxScale: 1,
       cursorSize: 20,
@@ -72,13 +76,13 @@ export default {
       }
     },
   },
-  inject: ['annTool', 'active_label'],
+  inject: ['host', 'annTool', 'active_label', 'frameNum', 'frameStep'],
   created() {
     this.$nextTick(() => {
       // this.cursor = this.$refs.cursor
-      this.maskCanvas_ctx = this.$refs.maskCanvas.getContext('2d')
-      this.colorCanvas_ctx = this.$refs.colorCanvas.getContext('2d')
-      this.colorWater_ctx = this.$refs.colorWater.getContext('2d')
+      this.mCan_ctx = this.$refs.mCan.getContext('2d')
+      this.cCan_ctx = this.$refs.cCan.getContext('2d')
+      this.cWater_ctx = this.$refs.cWater.getContext('2d')
       this.canvasPushdo()
 
       document.body.addEventListener('mousemove', this.cursorMove)
@@ -90,18 +94,29 @@ export default {
     this.$store.watch(
       (state, getters) => getters.getMCan,
       (value) => {
-        this.maskCanvas_ctx.putImageData(value, 0, 0)
+        this.mCan_ctx.putImageData(value, 0, 0)
       }
     )
     this.$store.watch(
       (state, getters) => getters.getCCan,
       (value) => {
-        this.colorCanvas_ctx.putImageData(value, 0, 0)
+        this.cCan_ctx.putImageData(value, 0, 0)
       }
     )
   },
   mounted() {
-    window.canvasClear = this.canvasClear
+    axios.defaults.baseURL = this.host
+    axios.interceptors.request.use((config) => {
+      config.baseURL = this.host
+      return config
+    })
+    axios
+      .post('/api/get', {
+        keys: ['labelLUT'],
+      })
+      .then((res) => {
+        this.labelLUT = res.data.labelLUT
+      })
   },
   methods: {
     cursorMove(e) {
@@ -128,29 +143,29 @@ export default {
     },
     drawMoving(e) {
       if (!this.isdrawMoving) return
-      let r = this.$refs.colorCanvas.getBoundingClientRect()
+      let r = this.$refs.cCan.getBoundingClientRect()
       let fullSize = this.annTool.brushSize
       let halfSize = this.annTool.brushSize / 2
       let x = parseInt(((e.clientX - r.left) / r.width) * 960 - halfSize)
       let y = parseInt(((e.clientY - r.top) / r.height) * 540 - halfSize)
       if (!e.shiftKey) {
-        this.colorCanvas_ctx.fillStyle = '#' + this.active_label.bgc
-        this.colorCanvas_ctx.fillRect(x, y, fullSize, fullSize)
-        // let fill_hex = parseInt(
-        //   $('.ann-label__item.active .ann-label__id').val()
-        // ).toString(16)
-        // if (fill_hex.halfSize == 1) {
-        //   fill_hex = '0' + fill_hex
-        // }
-        // this.maskCanvas_ctx.fillStyle = '#' + fill_hex + fill_hex + fill_hex
-        // this.maskCanvas_ctx.fillRect(x, y, halfSize * 2, halfSize * 2)
+        this.cCan_ctx.fillStyle = '#' + this.active_label.bgc
+        this.cCan_ctx.fillRect(x, y, fullSize, fullSize)
+
+        let fill_hex = this.active_label.id.toString(16)
+        if (fill_hex.length == 1) {
+          fill_hex = '0' + fill_hex
+        }
+        this.mCan_ctx.fillStyle = '#' + fill_hex + fill_hex + fill_hex
+        this.mCan_ctx.fillRect(x, y, fullSize, fullSize)
+
         this.isEmpty = false
       } else {
         let doubleSize = this.annTool.brushSize * 2
         x = x - halfSize
         y = y - halfSize
-        this.colorCanvas_ctx.clearRect(x, y, doubleSize, doubleSize)
-        this.maskCanvas_ctx.clearRect(x, y, doubleSize, doubleSize)
+        this.cCan_ctx.clearRect(x, y, doubleSize, doubleSize)
+        this.mCan_ctx.clearRect(x, y, doubleSize, doubleSize)
       }
     },
     canvasMoving(e) {
@@ -178,8 +193,8 @@ export default {
       }
     },
     canvasClear() {
-      this.colorCanvas_ctx.clearRect(0, 0, 960, 540)
-      this.maskCanvas_ctx.clearRect(0, 0, 960, 540)
+      this.cCan_ctx.clearRect(0, 0, 960, 540)
+      this.mCan_ctx.clearRect(0, 0, 960, 540)
       this.isEmpty = true
       this.canvasPushdo()
     },
@@ -198,9 +213,42 @@ export default {
     canvasPushdo() {
       this.$store.commit(
         'canvasPushdo',
-        this.colorCanvas_ctx.getImageData(0, 0, 960, 540),
-        this.maskCanvas_ctx.getImageData(0, 0, 960, 540)
+        this.cCan_ctx.getImageData(0, 0, 960, 540),
+        this.mCan_ctx.getImageData(0, 0, 960, 540)
       )
+    },
+    genWater() {
+      if (!this.isEmpty) {
+        let mCanData = this.mCan_ctx.getImageData(0, 0, 960, 540)
+        this.$store.commit('storeMCan', this.frameNum, mCanData)
+        let mCanData_comped = pako.deflate(mCanData.data)
+        // https://www.cnblogs.com/zhangnan35/p/12433201.html
+        let mCanData_b64 = window.btoa(String.fromCharCode(...mCanData_comped))
+        axios
+          .post('/api/send/gen_water', {
+            num_now: this.frameNum,
+            mask_canvas_b64: mCanData_b64,
+          })
+          .then((res) => {
+            const rawData = window.atob(res.data)
+            const outputArray = new Uint8Array(rawData.length)
+            for (let i = 0; i < rawData.length; ++i) {
+              outputArray[i] = rawData.charCodeAt(i)
+            }
+            let mCanData = pako.inflate(outputArray)
+
+            let cWaterData = this.cWater_ctx.createImageData(960, 540)
+            for (let i = 0; i < mCanData.length; i++) {
+              cWaterData.data[4 * i] = this.labelLUT[0][mCanData[i]][2]
+              cWaterData.data[4 * i + 1] = this.labelLUT[0][mCanData[i]][1]
+              cWaterData.data[4 * i + 2] = this.labelLUT[0][mCanData[i]][0]
+              cWaterData.data[4 * i + 3] = 255
+            }
+            this.cWater_ctx.putImageData(cWaterData, 0, 0)
+            this.annTool.isShowCWater = true
+            this.$store.commit('storeCWater', this.frameNum, cWaterData)
+          })
+      }
     },
   },
   watch: {
@@ -208,6 +256,47 @@ export default {
       this.$nextTick(() => {
         this.boxHeight = this.$refs.canvasBox.getBoundingClientRect().height
       })
+    },
+    frameNum: {
+      handler(newVal) {
+        this.cCan_ctx.clearRect(0, 0, 960, 540)
+        this.mCan_ctx.clearRect(0, 0, 960, 540)
+        this.isEmpty = true
+        this.frameSrc = this.host + '/api/frame/' + newVal
+        if (this.$store.state.cWater_dic[newVal]) {
+          this.annTool.isShowCWater = true
+          this.cWater_ctx.putImageData(
+            this.$store.state.cWater_dic[newVal],
+            0,
+            0
+          )
+        } else {
+          this.annTool.isShowCWater = false
+        }
+        if (this.$store.state.mCan_dic[newVal]) {
+          this.mCan_ctx.putImageData(this.$store.state.mCan_dic[newVal], 0, 0)
+          if (this.$store.state.cCan_dic[newVal]) {
+            this.cCan_ctx.putImageData(this.$store.state.cCan_dic[newVal], 0, 0)
+          } else {
+            let mCanData = this.$store.state.mCan_dic[newVal].data
+            let cCanData = this.cCan_ctx.createImageData(960, 540)
+            for (let i = 0; i < mCanData.length; i += 4) {
+              if (mCanData[i] != 0) {
+                cCanData.data[i] = this.labelLUT[0][mCanData[i]][2]
+                cCanData.data[i + 1] = this.labelLUT[0][mCanData[i]][1]
+                cCanData.data[i + 2] = this.labelLUT[0][mCanData[i]][0]
+                cCanData.data[i + 3] = 255
+              }
+            }
+            this.cCan_ctx.putImageData(cCanData, 0, 0)
+          }
+        }
+        //图片可能被缓存，所以必须send当前帧编号
+        axios
+          .post('/api/send/get_frame', { frameNum: this.frameNum })
+          .then(function (res) {})
+      },
+      deep: true,
     },
   },
 }

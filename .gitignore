@@ -3,3 +3,10 @@ node_modules
 dist
 dist-ssr
 *.local
+
+/.vscode/
+/*/__pycache__/
+
+/annotation/
+/data/
+*.mp4

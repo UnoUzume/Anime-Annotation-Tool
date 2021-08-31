@@ -3,9 +3,9 @@ import { createStore } from 'vuex'
 export default createStore({
   state() {
     return {
-      maskCanvas_dic: {},
-      colorCanvas_dic: {},
-      colorWater_dic: {},
+      mCan_dic: {},
+      cCan_dic: {},
+      cWater_dic: {},
       //maskCanvas
       mCan_undoL: [],
       mCan_redoL: [],
@@ -48,6 +48,15 @@ export default createStore({
         state.cCan_undoL = state.cCan_undoL.slice(50, -1)
         state.mCan_undoL = state.mCan_undoL.slice(50, -1)
       }
+    },
+    storeMCan(state, num, mCanData) {
+      state.mCan_dic[num] = mCanData
+    },
+    storeCCan(state, num, cCanData) {
+      state.cCan_dic[num] = cCanData
+    },
+    storeCWater(state, num, cWaterData) {
+      state.cWater_dic[num] = cWaterData
     },
   },
 })

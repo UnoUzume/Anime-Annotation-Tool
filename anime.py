@@ -15,7 +15,8 @@ import numpy as np
 from PIL import Image
 from cv2 import cv2
 
-from api import api
+from apps import api, creatProject
+import apps.base
 
 app = Flask(__name__,
             static_folder="./static",
@@ -23,6 +24,8 @@ app = Flask(__name__,
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(seconds=5)
 app.register_blueprint(api, url_prefix='/api')
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+apps.base.rootPath = Path(".")
 
 
 @app.route('/')
@@ -47,5 +50,7 @@ def getAssets(filename: str):
 
 
 if __name__ == '__main__':
+    creatProject()
+    print("run done")
     app.run(debug=True)
     # app.run(debug=True, threaded=True)

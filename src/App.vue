@@ -56,9 +56,9 @@
           min="0"
           max="1"
           step="0.1"
-          v-model="annTool.colorCanvasAlpha"
+          v-model="annTool.cCanAlpha"
         />
-        <input type="checkbox" v-model="annTool.isShowColorCanvas" />
+        <input type="checkbox" v-model="annTool.isShowCCan" />
         <br />
         <label>分割结果：</label>
         <input
@@ -66,9 +66,9 @@
           min="0"
           max="1"
           step="0.1"
-          v-model="annTool.colorWaterAlpha"
+          v-model="annTool.cWaterAlpha"
         />
-        <input type="checkbox" v-model="annTool.isShowColorWater" />
+        <input type="checkbox" v-model="annTool.isShowCWater" />
         <br />
         <el-button size="mini" @click="canvasResize">重置画布</el-button>
         <el-button size="mini" @click="canvasClear">清空画布</el-button>
@@ -80,18 +80,20 @@
         <br />
         <span> 反撤销队列：{{ redoLength }} </span>
         <br />
-        <el-button size="mini" class="ann-tool__canvas-gen-water"
-          >生成分割</el-button
-        >
+        <el-button size="mini" @click="genWater">生成分割</el-button>
       </el-aside>
       <el-container>
         <el-header class="workspace__header" height="54px">
           <el-row align="middle">
             <el-col :span="24">
-              <el-button size="mini">上一帧</el-button>
-              <el-button size="mini">下一帧</el-button>
-              <el-button size="mini">步退</el-button>
-              <el-button size="mini">步进</el-button>
+              <el-button size="mini" @click="frameNum--">上一帧</el-button>
+              <el-button size="mini" @click="frameNum++">下一帧</el-button>
+              <el-button size="mini" @click="frameNum -= frameStep"
+                >步退</el-button
+              >
+              <el-button size="mini" @click="frameNum += frameStep"
+                >步进</el-button
+              >
               <el-button size="mini">上一关键帧</el-button>
               <el-button size="mini">下一关键帧</el-button>
               <el-form
@@ -104,7 +106,6 @@
                   <el-input-number
                     v-model="frameNum"
                     controls-position="right"
-                    @change="handleChange"
                     :min="0"
                   ></el-input-number>
                 </el-form-item>
@@ -112,7 +113,6 @@
                   <el-input-number
                     v-model="frameStep"
                     controls-position="right"
-                    @change="handleChange"
                     :min="1"
                   ></el-input-number>
                 </el-form-item>
@@ -137,7 +137,7 @@
 </template>
 
 <script>
-import { reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import CvFunc from './components/CvFunc.vue'
 import CvCollapse from './components/CvCollapse.vue'
 import CvCollapseItem from './components/CvCollapseItem.vue'
@@ -171,10 +171,10 @@ export default {
       },
       annTool: {
         brushSize: 20,
-        colorCanvasAlpha: 0.7,
-        isShowColorCanvas: true,
-        colorWaterAlpha: 0.7,
-        isShowColorWater: true,
+        cCanAlpha: 0.7,
+        isShowCCan: true,
+        cWaterAlpha: 0.7,
+        isShowCWater: true,
       },
       active_label: {},
       label_list: [
@@ -237,11 +237,16 @@ export default {
     canvasRedo() {
       this.$refs.workSpace.canvasRedo()
     },
+    genWater() {
+      this.$refs.workSpace.genWater()
+    },
   },
   provide() {
     return {
       annTool: this.annTool,
       active_label: this.active_label,
+      frameNum: computed(() => this.frameNum),
+      frameStep: computed(() => this.frameStep),
     }
   },
   created() {

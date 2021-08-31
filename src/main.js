@@ -14,7 +14,8 @@ if (process.env.NODE_ENV === 'development') {
     win.__VUE_DEVTOOLS_GLOBAL_HOOK__.Vue = app
   }
 }
-
+app.config.unwrapInjectedRef = true
 app.use(store)
 app.use(ElementPlus)
+app.provide('host', 'http://127.0.0.1:5000')
 app.mount('#app')
