@@ -52,8 +52,8 @@ def send(task):
             time_start = time.time()
 
             mCan_comped = base64.b64decode(request.json['mask_canvas_b64'])
-            maskWater_comped = project.genWater(mCan_comped)
-            base64_str = base64.b64encode(maskWater_comped).decode('ascii')
+            cWater_comped = project.genWater(mCan_comped)
+            base64_str = base64.b64encode(cWater_comped).decode('ascii')
 
             time_end = time.time()
             print("gen mask: "+str(time_end-time_start))

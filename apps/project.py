@@ -77,7 +77,9 @@ class Project:
         maskWater: np.ndarray = cv2.watershed(
             frame, markers=maskImg.astype("int32"))
         maskWater = maskWater.astype("uint8")  # -1 -> 255
-
-        maskWater_comped = zlib.compress(maskWater.tobytes())
+        maskWater = cv2.cvtColor(maskWater, cv2.COLOR_GRAY2BGR)
+        cWater = cv2.LUT(maskWater, self.lut)
+        cWater = cv2.cvtColor(cWater, cv2.COLOR_BGR2RGBA)
         executor.submit(self.saveMask, frame, maskImg, maskWater)
-        return maskWater_comped
+        cWater_comped = zlib.compress(cWater.tobytes())
+        return cWater_comped

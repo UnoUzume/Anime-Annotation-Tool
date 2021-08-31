@@ -152,11 +152,8 @@ export default {
         this.cCan_ctx.fillStyle = '#' + this.active_label.bgc
         this.cCan_ctx.fillRect(x, y, fullSize, fullSize)
 
-        let fill_hex = this.active_label.id.toString(16)
-        if (fill_hex.length == 1) {
-          fill_hex = '0' + fill_hex
-        }
-        this.mCan_ctx.fillStyle = '#' + fill_hex + fill_hex + fill_hex
+        let fill_hex = this.active_label.id.toString(16).padStart(2, '0')
+        this.mCan_ctx.fillStyle = '#' + fill_hex.repeat(3)
         this.mCan_ctx.fillRect(x, y, fullSize, fullSize)
 
         this.isEmpty = false
@@ -235,15 +232,8 @@ export default {
             for (let i = 0; i < rawData.length; ++i) {
               outputArray[i] = rawData.charCodeAt(i)
             }
-            let mCanData = pako.inflate(outputArray)
-
-            let cWaterData = this.cWater_ctx.createImageData(960, 540)
-            for (let i = 0; i < mCanData.length; i++) {
-              cWaterData.data[4 * i] = this.labelLUT[0][mCanData[i]][2]
-              cWaterData.data[4 * i + 1] = this.labelLUT[0][mCanData[i]][1]
-              cWaterData.data[4 * i + 2] = this.labelLUT[0][mCanData[i]][0]
-              cWaterData.data[4 * i + 3] = 255
-            }
+            let uint8Array = Uint8ClampedArray.from(pako.inflate(outputArray))
+            let cWaterData = new ImageData(uint8Array, 960, 540)
             this.cWater_ctx.putImageData(cWaterData, 0, 0)
             this.annTool.isShowCWater = true
             this.$store.commit('storeCWater', this.frameNum, cWaterData)
