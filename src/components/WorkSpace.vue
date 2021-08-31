@@ -79,13 +79,26 @@ export default {
       this.maskCanvas_ctx = this.$refs.maskCanvas.getContext('2d')
       this.colorCanvas_ctx = this.$refs.colorCanvas.getContext('2d')
       this.colorWater_ctx = this.$refs.colorWater.getContext('2d')
-      document.body.addEventListener('mousemove', this.cursorMove)
+      this.canvasPushdo()
 
+      document.body.addEventListener('mousemove', this.cursorMove)
       document.addEventListener('mousemove', this.drawMoving)
       document.addEventListener('mousemove', this.canvasMoving)
       document.addEventListener('mouseup', this.whenMouseUp)
       this.boxHeight = this.$refs.canvasBox.getBoundingClientRect().height
     })
+    this.$store.watch(
+      (state, getters) => getters.getMCan,
+      (value) => {
+        this.maskCanvas_ctx.putImageData(value, 0, 0)
+      }
+    )
+    this.$store.watch(
+      (state, getters) => getters.getCCan,
+      (value) => {
+        this.colorCanvas_ctx.putImageData(value, 0, 0)
+      }
+    )
   },
   mounted() {
     window.canvasClear = this.canvasClear
@@ -108,8 +121,10 @@ export default {
       }
     },
     whenMouseUp(e) {
-      if (e.button == 0) this.isdrawMoving = false
-      else if (e.button == 1) this.isCanvasMoving = false
+      if (e.button == 0 && this.isdrawMoving) {
+        this.isdrawMoving = false
+        this.canvasPushdo()
+      } else if (e.button == 1) this.isCanvasMoving = false
     },
     drawMoving(e) {
       if (!this.isdrawMoving) return
@@ -166,12 +181,26 @@ export default {
       this.colorCanvas_ctx.clearRect(0, 0, 960, 540)
       this.maskCanvas_ctx.clearRect(0, 0, 960, 540)
       this.isEmpty = true
+      this.canvasPushdo()
     },
     canvasResize() {
       this.annTool.brushSize *= this.boxScale
       this.boxScale = 1
       this.$refs.canvasBox.style.left = '0px'
       this.$refs.canvasBox.style.top = '0px'
+    },
+    canvasUndo() {
+      this.$store.commit('canvasUndo')
+    },
+    canvasRedo() {
+      this.$store.commit('canvasRedo')
+    },
+    canvasPushdo() {
+      this.$store.commit(
+        'canvasPushdo',
+        this.colorCanvas_ctx.getImageData(0, 0, 960, 540),
+        this.maskCanvas_ctx.getImageData(0, 0, 960, 540)
+      )
     },
   },
   watch: {

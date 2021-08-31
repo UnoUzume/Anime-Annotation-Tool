@@ -73,17 +73,12 @@
         <el-button size="mini" @click="canvasResize">重置画布</el-button>
         <el-button size="mini" @click="canvasClear">清空画布</el-button>
         <br />
-        <el-button size="mini" class="ann-tool__canvas-undo">撤销</el-button>
-        <el-button size="mini" class="ann-tool__canvas-redo">反撤销</el-button>
+        <el-button size="mini" @click="canvasUndo">撤销</el-button>
+        <el-button size="mini" @click="canvasRedo">反撤销</el-button>
         <br />
-        <span>
-          撤销队列：
-          <span class="ann-tool__undo-length">0</span>
-        </span>
-        <span>
-          反撤销队列：
-          <span class="ann-tool__redo-length">0</span>
-        </span>
+        <span> 撤销队列：{{ undoLength }} </span>
+        <br />
+        <span> 反撤销队列：{{ redoLength }} </span>
         <br />
         <el-button size="mini" class="ann-tool__canvas-gen-water"
           >生成分割</el-button
@@ -148,6 +143,12 @@ import CvCollapse from './components/CvCollapse.vue'
 import CvCollapseItem from './components/CvCollapseItem.vue'
 import WorkSpace from './components/WorkSpace.vue'
 export default {
+  components: {
+    CvFunc,
+    CvCollapse,
+    CvCollapseItem,
+    WorkSpace,
+  },
   data() {
     return {
       cvFunc: [
@@ -192,16 +193,20 @@ export default {
       value1: 1,
     }
   },
-  provide() {
-    return {
-      annTool: this.annTool,
-      active_label: this.active_label,
-    }
-  },
-  created() {
-    this.$nextTick(() => {
-      this.whenClickLabel(this.label_list[0])
-    })
+  computed: {
+    undoLength() {
+      return this.$store.state.cCan_undoL.length - 1
+    },
+    redoLength() {
+      return this.$store.state.cCan_redoL.length
+    },
+    cusorStyle() {
+      return {
+        transform: `translate(-50%, -50%) scale(${this.cusorScale})`,
+        width: this.annTool.brushSize + 'px',
+        height: this.annTool.brushSize + 'px',
+      }
+    },
   },
   methods: {
     onSubmit() {
@@ -226,12 +231,23 @@ export default {
     canvasResize() {
       this.$refs.workSpace.canvasResize()
     },
+    canvasUndo() {
+      this.$refs.workSpace.canvasUndo()
+    },
+    canvasRedo() {
+      this.$refs.workSpace.canvasRedo()
+    },
   },
-  components: {
-    CvFunc,
-    CvCollapse,
-    CvCollapseItem,
-    WorkSpace,
+  provide() {
+    return {
+      annTool: this.annTool,
+      active_label: this.active_label,
+    }
+  },
+  created() {
+    this.$nextTick(() => {
+      this.whenClickLabel(this.label_list[0])
+    })
   },
 }
 </script>
