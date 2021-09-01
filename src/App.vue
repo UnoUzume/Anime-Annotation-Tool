@@ -78,12 +78,16 @@
         <el-header class="workspace__header" height="54px">
           <el-row align="middle">
             <el-col :span="24">
-              <el-button @click="frameNum--">上一帧</el-button>
-              <el-button @click="frameNum++">下一帧</el-button>
-              <el-button @click="frameNum -= frameStep">步退</el-button>
-              <el-button @click="frameNum += frameStep">步进</el-button>
-              <el-button>上一关键帧</el-button>
-              <el-button>下一关键帧</el-button>
+              <el-button @click="annTool.frameNum--">上一帧</el-button>
+              <el-button @click="annTool.frameNum++">下一帧</el-button>
+              <el-button @click="annTool.frameNum -= annTool.frameStep"
+                >步退</el-button
+              >
+              <el-button @click="annTool.frameNum += annTool.frameStep"
+                >步进</el-button
+              >
+              <el-button @click="preKeyframe">上一关键帧</el-button>
+              <el-button @click="nextKeyframe">下一关键帧</el-button>
               <el-form
                 :inline="true"
                 :model="formInline"
@@ -92,26 +96,34 @@
               >
                 <el-form-item label="当前帧">
                   <el-input-number
-                    v-model="frameNum"
+                    v-model="annTool.frameNum"
                     controls-position="right"
                     :min="0"
                   ></el-input-number>
                 </el-form-item>
                 <el-form-item label="步长">
                   <el-input-number
-                    v-model="frameStep"
+                    v-model="annTool.frameStep"
                     controls-position="right"
                     :min="1"
                   ></el-input-number>
                 </el-form-item>
               </el-form>
+
+              <el-radio-group v-model="jumpMethod">
+                <el-radio-button label="0">跳帧</el-radio-button>
+                <el-radio-button label="1">跳步</el-radio-button>
+                <el-radio-button label="2">跳关键帧</el-radio-button>
+              </el-radio-group>
             </el-col>
           </el-row>
         </el-header>
         <el-main class="workspace">
           <work-space ref="workSpace" />
         </el-main>
-        <el-footer class="workspace__footer" height="120px"> </el-footer>
+        <el-footer class="workspace__footer" height="120px">
+          <e-charts />
+        </el-footer>
       </el-container>
       <el-aside class="page-body__right" width="250px">
         <el-container style="height: 100%">
@@ -134,16 +146,19 @@
 
 <script>
 import { ref, reactive, computed } from 'vue'
+import axios from 'axios'
 import CvFunc from './components/CvFunc.vue'
 import CvCollapse from './components/CvCollapse.vue'
 import CvCollapseItem from './components/CvCollapseItem.vue'
 import WorkSpace from './components/WorkSpace.vue'
+import ECharts from './components/ECharts.vue'
 export default {
   components: {
     CvFunc,
     CvCollapse,
     CvCollapseItem,
     WorkSpace,
+    ECharts,
   },
   data() {
     return {
@@ -164,8 +179,8 @@ export default {
           argForm: {},
         },
       ],
-      frameNum: 0,
-      frameStep: 3,
+
+      jumpMethod: 2,
       formInline: {
         user: '',
         region: '',
@@ -176,6 +191,8 @@ export default {
         isShowCCan: true,
         cWaterAlpha: 0.7,
         isShowCWater: true,
+        frameNum: 1,
+        frameStep: 3,
       },
       active_label: {},
       label_list: [
@@ -203,6 +220,7 @@ export default {
         c: 7,
         v: 8,
       },
+      keyframes: [],
     }
   },
   computed: {
@@ -252,16 +270,36 @@ export default {
     genWater() {
       this.$refs.workSpace.genWater()
     },
+    preKeyframe() {
+      // this.annTool.frameNum = this.keyframes
+      //   .reverse()
+      //   .find((value) => value < this.annTool.frameNum)
+      let index = this.keyframes.findIndex(
+        (value) => value > this.annTool.frameNum - 1
+      )
+      this.annTool.frameNum = this.keyframes[index - 1]
+    },
+    nextKeyframe() {
+      this.annTool.frameNum = this.keyframes.find(
+        (value) => value > this.annTool.frameNum
+      )
+    },
   },
   provide() {
     return {
       annTool: this.annTool,
       active_label: this.active_label,
-      frameNum: computed(() => this.frameNum),
-      frameStep: computed(() => this.frameStep),
     }
   },
   mounted() {
+    axios
+      .post('/api/get', {
+        keys: ['keyframes'],
+      })
+      .then((res) => {
+        this.keyframes = res.data.keyframes
+        this.annTool.frameNum = 0
+      })
     this.$nextTick(() => {
       this.whenClickLabel(this.label_list[0])
     })
@@ -281,9 +319,15 @@ export default {
       } else if (e.key == ' ') {
         this.genWater()
       } else if (e.key == 'a') {
-        this.frameNum -= this.frameStep
+        if (this.jumpMethod == 0) this.annTool.frameNum--
+        else if (this.jumpMethod == 1)
+          this.annTool.frameNum -= this.annTool.frameStep
+        else this.preKeyframe()
       } else if (e.key == 'd') {
-        this.frameNum += this.frameStep
+        if (this.jumpMethod == 0) this.annTool.frameNum++
+        else if (this.jumpMethod == 1)
+          this.annTool.frameNum += this.annTool.frameStep
+        else this.nextKeyframe()
       } else if (e.key == 'g') {
         this.canvasClear()
       } else if (e.key == 's') {
@@ -329,6 +373,13 @@ body,
 .el-input-number.is-controls-right .el-input__inner {
   padding-left: 0px !important;
   padding-right: 30px !important;
+}
+.el-radio-button__inner {
+  min-height: 20px;
+  padding: 0px 7px;
+  line-height: 20px;
+  font-size: 12px;
+  background-color: #fff;
 }
 .page-header {
   display: flex;

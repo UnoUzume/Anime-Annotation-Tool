@@ -27,7 +27,7 @@ class Video:
         self.ana_keyframes_lock = 0
         self.frames_tatal = int(self.cap.get(7))
         self.keyframes = None
-        self.diff_value = None
+        self.diffValue = None
         if Patha("data/"+self.filename+" - keyframes.npy").exists():
             print("load keyframes.npy")
             self.keyframes = np.load(
@@ -35,9 +35,9 @@ class Video:
             print("keyframes.shape:", self.keyframes.shape)
         if Patha("data/"+self.filename+" - diff_value.npy").exists():
             print("load diff_value.npy")
-            self.diff_value = np.load(
+            self.diffValue = np.load(
                 "data/"+self.filename+" - diff_value.npy")
-            print("diff_value.shape:", self.diff_value.shape)
+            print("diff_value.shape:", self.diffValue.shape)
 
     def read_frames(self, n=1, is_loop=False):
         frames = []
@@ -70,7 +70,7 @@ class Video:
 
     def ana_keyframes_process(self):
         self.keyframes = []
-        self.diff_value = []
+        self.diffValue = []
 
         print('ana_keyframes start')
         diff_value_pos_temp = []
@@ -107,12 +107,12 @@ class Video:
         self.ana_keyframes_lock = 2
         diff_value_pos_temp = np.array(diff_value_pos_temp)
         diff_value_sum_temp = np.array(diff_value_sum_temp)
-        self.diff_value = np.zeros(self.frames_tatal)
-        self.diff_value[diff_value_pos_temp.astype(
+        self.diffValue = np.zeros(self.frames_tatal)
+        self.diffValue[diff_value_pos_temp.astype(
             'int32').tolist()] = diff_value_sum_temp.astype('int32')
         print('ana_keyframes end')
         np.save("data/"+self.filename+" - keyframes", self.keyframes)
-        np.save("data/"+self.filename+" - diff_value", self.diff_value)
+        np.save("data/"+self.filename+" - diff_value", self.diffValue)
 
     def ana_keyframes(self):
         print("启动开始")

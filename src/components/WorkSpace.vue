@@ -76,7 +76,7 @@ export default {
       }
     },
   },
-  inject: ['host', 'annTool', 'active_label', 'frameNum', 'frameStep'],
+  inject: ['host', 'annTool', 'active_label'],
   created() {
     this.$nextTick(() => {
       // this.cursor = this.$refs.cursor
@@ -92,12 +92,14 @@ export default {
       this.boxHeight = this.$refs.canBox.getBoundingClientRect().height
     })
     this.$store.watch(
-      (state, getters) => getters.getLastMCan,
-      (value) => this.mCan_ctx.putImageData(value, 0, 0)
+      (state, getters) => getters.getUndoMCan,
+      (value) =>
+        this.mCan_ctx.putImageData(this.$store.getters.toImgData(value), 0, 0)
     )
     this.$store.watch(
-      (state, getters) => getters.getLastCCan,
-      (value) => this.cCan_ctx.putImageData(value, 0, 0)
+      (state, getters) => getters.getUndoCCan,
+      (value) =>
+        this.cCan_ctx.putImageData(this.$store.getters.toImgData(value), 0, 0)
     )
   },
   mounted() {
@@ -219,45 +221,45 @@ export default {
     },
     genWater() {
       if (!this.isEmpty) {
-        // console.time('charCodeAt time')
+        console.time('genWater time')
         let mCanData = this.mCan_ctx.getImageData(0, 0, 960, 540)
         let mCanData_comped = pako.deflate(mCanData.data, { level: 6 })
-        console.log(mCanData_comped)
+        // console.log(mCanData_comped)
         // https://www.cnblogs.com/zhangnan35/p/12433201.html
         let mCanData_b64 = window.btoa(String.fromCharCode(...mCanData_comped))
-        // console.timeLog('charCodeAt time')
+        // console.timeLog('genWater time')
         axios
           .post('/api/send/gen_water', {
-            num_now: this.frameNum,
+            num_now: this.annTool.frameNum,
             mask_canvas_b64: mCanData_b64,
           })
           .then((res) => {
-            // console.timeLog('charCodeAt time')
+            // console.timeLog('genWater time')
             // https://www.jianshu.com/p/b48217719c83
             var strData = atob(res.data)
             var charData = strData.split('').map((x) => x.charCodeAt(0))
             var binData = new Uint8Array(charData)
-            console.log(binData)
+            // console.log(binData)
             let uint8Array = Uint8ClampedArray.from(pako.inflate(binData))
             let cWaterData = new ImageData(uint8Array, 960, 540)
             this.cWater_ctx.putImageData(cWaterData, 0, 0)
             this.annTool.isShowCWater = true
-            // console.timeLog('charCodeAt time')
+            // console.timeLog('genWater time')
             this.$store.commit('storeCWater', {
-              num: this.frameNum,
+              num: this.annTool.frameNum,
               imgData: cWaterData,
             })
 
             this.$store.commit('storeMCan', {
-              num: this.frameNum,
+              num: this.annTool.frameNum,
               imgData: mCanData,
             })
             let cCanData = this.cCan_ctx.getImageData(0, 0, 960, 540)
             this.$store.commit('storeCCan', {
-              num: this.frameNum,
+              num: this.annTool.frameNum,
               imgData: cCanData,
             })
-            // console.timeEnd('charCodeAt time')
+            console.timeEnd('genWater time')
           })
       }
     },
@@ -268,7 +270,7 @@ export default {
         this.boxHeight = this.$refs.canBox.getBoundingClientRect().height
       })
     },
-    frameNum: {
+    'annTool.frameNum': {
       handler(num) {
         this.cCan_ctx.clearRect(0, 0, 960, 540)
         this.mCan_ctx.clearRect(0, 0, 960, 540)

@@ -69,14 +69,14 @@ def get():
         if key == 'keyframes':
             if project.video2.keyframes is not None:
                 result['keyframes'] = project.video2.keyframes.tolist()
-        elif key == 'diff_value':
-            if project.video2.diff_value is not None:
-                result['diff_value'] = project.video2.diff_value.tolist()
-        elif key == 'diff_value_cut':
-            if project.video2.diff_value is not None:
-                temp = project.video2.diff_value.copy()
+        elif key == 'diffValue':
+            if project.video2.diffValue is not None:
+                result['diffValue'] = project.video2.diffValue.tolist()
+        elif key == 'diffValue_cut':
+            if project.video2.diffValue is not None:
+                temp = project.video2.diffValue.copy()
                 temp[temp > 3e7] = 3e7
-                result['diff_value'] = temp.tolist()
+                result['diffValue'] = temp.tolist()
         elif key == 'labelLUT':
             result['labelLUT'] = project.lut.tolist()
     return jsonify(result)

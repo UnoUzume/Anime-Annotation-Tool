@@ -33,17 +33,21 @@ export default createStore({
       // console.log('getCCan', state.cWater_dic[num], uint8Array)
       return new ImageData(uint8Array, 960, 540)
     },
-    getLastMCan: (state) => {
+    getUndoMCan: (state, getters) => {
       return state.mCan_undoL[state.mCan_undoL.length - 1]
     },
-    getLastCCan: (state) => {
+    getUndoCCan: (state) => {
       return state.cCan_undoL[state.cCan_undoL.length - 1]
+    },
+    toImgData: (state) => (array) => {
+      let uint8Array = ClampedArray.from(pako.inflate(array))
+      return new ImageData(uint8Array, 960, 540)
     },
   },
   mutations: {
     canvasPushdo(state, payload) {
-      state.cCan_undoL.push(payload.cCanData)
-      state.mCan_undoL.push(payload.mCanData)
+      state.cCan_undoL.push(pako.deflate(payload.cCanData.data))
+      state.mCan_undoL.push(pako.deflate(payload.mCanData.data))
       if (state.cCan_undoL.length > 100) {
         state.cCan_undoL = state.cCan_undoL.slice(50, -1)
         state.mCan_undoL = state.mCan_undoL.slice(50, -1)
