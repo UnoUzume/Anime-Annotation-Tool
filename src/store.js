@@ -1,5 +1,6 @@
 import { createStore } from 'vuex'
-
+import pako from 'pako'
+let ClampedArray = Uint8ClampedArray
 export default createStore({
   state() {
     return {
@@ -15,17 +16,34 @@ export default createStore({
     }
   },
   getters: {
-    getMCan: (state) => {
+    getCWater: (state) => (num) => {
+      // console.time('inflate time')
+      let uint8Array = ClampedArray.from(pako.inflate(state.cWater_dic[num]))
+      // console.log('getCWater', state.cWater_dic[num], uint8Array)
+      // console.timeEnd('inflate time')
+      return new ImageData(uint8Array, 960, 540)
+    },
+    getMCan: (state) => (num) => {
+      let uint8Array = ClampedArray.from(pako.inflate(state.mCan_dic[num]))
+      // console.log('getMCan', state.cWater_dic[num], uint8Array)
+      return new ImageData(uint8Array, 960, 540)
+    },
+    getCCan: (state) => (num) => {
+      let uint8Array = ClampedArray.from(pako.inflate(state.cCan_dic[num]))
+      // console.log('getCCan', state.cWater_dic[num], uint8Array)
+      return new ImageData(uint8Array, 960, 540)
+    },
+    getLastMCan: (state) => {
       return state.mCan_undoL[state.mCan_undoL.length - 1]
     },
-    getCCan: (state) => {
+    getLastCCan: (state) => {
       return state.cCan_undoL[state.cCan_undoL.length - 1]
     },
   },
   mutations: {
-    canvasPushdo(state, cCanData, mCanData) {
-      state.cCan_undoL.push(cCanData)
-      state.mCan_undoL.push(mCanData)
+    canvasPushdo(state, payload) {
+      state.cCan_undoL.push(payload.cCanData)
+      state.mCan_undoL.push(payload.mCanData)
       if (state.cCan_undoL.length > 100) {
         state.cCan_undoL = state.cCan_undoL.slice(50, -1)
         state.mCan_undoL = state.mCan_undoL.slice(50, -1)
@@ -49,14 +67,14 @@ export default createStore({
         state.mCan_undoL = state.mCan_undoL.slice(50, -1)
       }
     },
-    storeMCan(state, num, mCanData) {
-      state.mCan_dic[num] = mCanData
+    storeMCan(state, payload) {
+      state.mCan_dic[payload.num] = pako.deflate(payload.imgData.data)
     },
-    storeCCan(state, num, cCanData) {
-      state.cCan_dic[num] = cCanData
+    storeCCan(state, payload) {
+      state.cCan_dic[payload.num] = pako.deflate(payload.imgData.data)
     },
-    storeCWater(state, num, cWaterData) {
-      state.cWater_dic[num] = cWaterData
+    storeCWater(state, payload) {
+      state.cWater_dic[payload.num] = pako.deflate(payload.imgData.data)
     },
   },
 })

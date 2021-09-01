@@ -21,7 +21,7 @@ import apps.base
 app = Flask(__name__,
             static_folder="./static",
             template_folder="./dist")
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(seconds=5)
+# app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(seconds=5)
 app.register_blueprint(api, url_prefix='/api')
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 

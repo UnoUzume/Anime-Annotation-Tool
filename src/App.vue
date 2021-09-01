@@ -1,20 +1,12 @@
 <template>
   <el-container style="height: 100%">
-    <el-header class="page-header" height="36px">
+    <el-header class="page-header" height="24px">
       <el-row align="middle">
         <el-col :span="24">
-          <el-button type="text" size="mini" icon="el-icon-edit"
-            >菜单</el-button
-          >
-          <el-button type="text" size="mini" icon="el-icon-share"
-            >保存</el-button
-          >
-          <el-button type="text" size="mini" icon="el-icon-delete"
-            >撤销</el-button
-          >
-          <el-button type="text" size="mini" icon="el-icon-search"
-            >重做</el-button
-          >
+          <el-button type="text" icon="el-icon-edit">菜单</el-button>
+          <el-button type="text" icon="el-icon-share">保存</el-button>
+          <el-button type="text" icon="el-icon-delete">撤销</el-button>
+          <el-button type="text" icon="el-icon-search">重做</el-button>
           <el-button type="text" size="mini"
             >上传<i class="el-icon-upload el-icon--right"></i
           ></el-button>
@@ -70,32 +62,28 @@
         />
         <input type="checkbox" v-model="annTool.isShowCWater" />
         <br />
-        <el-button size="mini" @click="canvasResize">重置画布</el-button>
-        <el-button size="mini" @click="canvasClear">清空画布</el-button>
+        <el-button @click="canvasResize">重置画布</el-button>
+        <el-button @click="canvasClear">清空画布</el-button>
         <br />
-        <el-button size="mini" @click="canvasUndo">撤销</el-button>
-        <el-button size="mini" @click="canvasRedo">反撤销</el-button>
+        <el-button @click="canvasUndo">撤销</el-button>
+        <el-button @click="canvasRedo">反撤销</el-button>
         <br />
         <span> 撤销队列：{{ undoLength }} </span>
         <br />
         <span> 反撤销队列：{{ redoLength }} </span>
         <br />
-        <el-button size="mini" @click="genWater">生成分割</el-button>
+        <el-button @click="genWater">生成分割</el-button>
       </el-aside>
       <el-container>
         <el-header class="workspace__header" height="54px">
           <el-row align="middle">
             <el-col :span="24">
-              <el-button size="mini" @click="frameNum--">上一帧</el-button>
-              <el-button size="mini" @click="frameNum++">下一帧</el-button>
-              <el-button size="mini" @click="frameNum -= frameStep"
-                >步退</el-button
-              >
-              <el-button size="mini" @click="frameNum += frameStep"
-                >步进</el-button
-              >
-              <el-button size="mini">上一关键帧</el-button>
-              <el-button size="mini">下一关键帧</el-button>
+              <el-button @click="frameNum--">上一帧</el-button>
+              <el-button @click="frameNum++">下一帧</el-button>
+              <el-button @click="frameNum -= frameStep">步退</el-button>
+              <el-button @click="frameNum += frameStep">步进</el-button>
+              <el-button>上一关键帧</el-button>
+              <el-button>下一关键帧</el-button>
               <el-form
                 :inline="true"
                 :model="formInline"
@@ -125,12 +113,20 @@
         </el-main>
         <el-footer class="workspace__footer" height="120px"> </el-footer>
       </el-container>
-      <el-aside class="page-body__right" width="320px">
-        <el-scrollbar>
-          <cv-func v-model="cvFunc" />
+      <el-aside class="page-body__right" width="250px">
+        <el-container style="height: 100%">
+          <el-header height="130px">
+            <div class="mouse-info" ref="mouseInfo"></div>
+          </el-header>
+          <el-main>
+            <el-scrollbar>
+              <cv-func v-model="cvFunc" />
 
-          <el-button size="mini" @click="showfunc">下一关键帧</el-button>
-        </el-scrollbar>
+              <el-button @click="showfunc">下一关键帧</el-button>
+            </el-scrollbar>
+          </el-main>
+          <el-footer height="30px">Footer</el-footer>
+        </el-container>
       </el-aside>
     </el-container>
   </el-container>
@@ -162,9 +158,14 @@ export default {
           name: 'func2',
           argForm: {},
         },
+        {
+          func: 'cut',
+          name: 'func3',
+          argForm: {},
+        },
       ],
       frameNum: 0,
-      frameStep: 0,
+      frameStep: 3,
       formInline: {
         user: '',
         region: '',
@@ -191,6 +192,17 @@ export default {
       checked: true,
       checked2: true,
       value1: 1,
+      labelKeyMap: {
+        f: 0,
+        q: 1,
+        w: 2,
+        e: 3,
+        r: 4,
+        z: 5,
+        x: 6,
+        c: 7,
+        v: 8,
+      },
     }
   },
   computed: {
@@ -249,9 +261,36 @@ export default {
       frameStep: computed(() => this.frameStep),
     }
   },
-  created() {
+  mounted() {
     this.$nextTick(() => {
       this.whenClickLabel(this.label_list[0])
+    })
+    document.addEventListener('mousemove', (e) => {
+      this.$refs.mouseInfo.innerHTML =
+        `clientX${e.clientX},clientY${e.clientY}<br>` +
+        `screenX:${e.screenX},screenY${e.screenY}<br>` +
+        `pageX:${e.pageX},pageY:${e.pageY}<br>` +
+        `offsetX:${e.offsetX},offsetY${e.offsetY}<br>` +
+        `x:${e.x},y:${e.y}<br>` +
+        `movementX:${e.movementX},movementY:${e.movementY}`
+    })
+    document.addEventListener('keydown', (e) => {
+      // console.log(e)
+      if (e.key in this.labelKeyMap) {
+        this.whenClickLabel(this.label_list[this.labelKeyMap[e.key]])
+      } else if (e.key == ' ') {
+        this.genWater()
+      } else if (e.key == 'a') {
+        this.frameNum -= this.frameStep
+      } else if (e.key == 'd') {
+        this.frameNum += this.frameStep
+      } else if (e.key == 'g') {
+        this.canvasClear()
+      } else if (e.key == 's') {
+        this.annTool.isShowCWater = !this.annTool.isShowCWater
+      } else {
+        return
+      }
     })
   },
 }
@@ -272,6 +311,8 @@ body,
 .el-button {
   min-height: 20px;
   padding: 0px 7px;
+  font-size: 12px;
+  border-radius: calc(var(--el-border-radius-base) - 1px);
 }
 .el-button + .el-button {
   margin-left: 6px;
@@ -304,8 +345,9 @@ body,
   border-left: 1px solid #c3c3c3;
 }
 
-.workspace {
-  /* width: 0px; */
+.el-main,
+.el-header,
+.el-footer {
   padding: 0px;
 }
 
@@ -377,5 +419,12 @@ body,
   --el-slider-button-size: 14px;
   --el-slider-button-wrapper-size: 24px;
   --el-slider-button-wrapper-offset: -10px;
+}
+
+.mouse-info {
+  width: 100%;
+  height: 130px;
+  background-color: rgb(194, 230, 253);
+  line-height: 20px;
 }
 </style>

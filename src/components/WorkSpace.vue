@@ -1,8 +1,8 @@
 <template>
-  <div class="workspace__canvas-wrapper" ref="canvasWrapper">
+  <div class="workspace__canvas-wrapper" ref="canWrapper">
     <div
       class="workspace__canvas-box"
-      ref="canvasBox"
+      ref="canBox"
       :style="{ transform: `scale(${this.boxScale})` }"
       @mousedown="whenMouseDown($event)"
       @mousewheel="whenMouseWheel($event)"
@@ -89,27 +89,23 @@ export default {
       document.addEventListener('mousemove', this.drawMoving)
       document.addEventListener('mousemove', this.canvasMoving)
       document.addEventListener('mouseup', this.whenMouseUp)
-      this.boxHeight = this.$refs.canvasBox.getBoundingClientRect().height
+      this.boxHeight = this.$refs.canBox.getBoundingClientRect().height
     })
     this.$store.watch(
-      (state, getters) => getters.getMCan,
-      (value) => {
-        this.mCan_ctx.putImageData(value, 0, 0)
-      }
+      (state, getters) => getters.getLastMCan,
+      (value) => this.mCan_ctx.putImageData(value, 0, 0)
     )
     this.$store.watch(
-      (state, getters) => getters.getCCan,
-      (value) => {
-        this.cCan_ctx.putImageData(value, 0, 0)
-      }
+      (state, getters) => getters.getLastCCan,
+      (value) => this.cCan_ctx.putImageData(value, 0, 0)
     )
   },
   mounted() {
     axios.defaults.baseURL = this.host
-    axios.interceptors.request.use((config) => {
-      config.baseURL = this.host
-      return config
-    })
+    // axios.interceptors.request.use((config) => {
+    //   config.baseURL = this.host
+    //   return config
+    // })
     axios
       .post('/api/get', {
         keys: ['labelLUT'],
@@ -117,10 +113,11 @@ export default {
       .then((res) => {
         this.labelLUT = res.data.labelLUT
       })
+    this.canvasInitsize()
   },
   methods: {
     cursorMove(e) {
-      let r = this.$refs.canvasWrapper.getBoundingClientRect()
+      let r = this.$refs.canWrapper.getBoundingClientRect()
       this.$refs.cursor.style.left = e.clientX - r.left + 'px'
       this.$refs.cursor.style.top = e.clientY - r.top + 'px'
     },
@@ -130,8 +127,8 @@ export default {
         this.drawMoving(e)
       } else if (e.button == 1) {
         if (e.preventDefault) e.preventDefault()
-        this.canvasXc = e.pageX - this.$refs.canvasBox.offsetLeft
-        this.canvasYc = e.pageY - this.$refs.canvasBox.offsetTop
+        this.canvasXc = e.pageX - this.$refs.canBox.offsetLeft
+        this.canvasYc = e.pageY - this.$refs.canBox.offsetTop
         this.isCanvasMoving = true
       }
     },
@@ -167,8 +164,8 @@ export default {
     },
     canvasMoving(e) {
       if (!this.isCanvasMoving) return
-      this.$refs.canvasBox.style.left = e.pageX - this.canvasXc + 'px'
-      this.$refs.canvasBox.style.top = e.pageY - this.canvasYc + 'px'
+      this.$refs.canBox.style.left = e.pageX - this.canvasXc + 'px'
+      this.$refs.canBox.style.top = e.pageY - this.canvasYc + 'px'
     },
     whenMouseWheel(e) {
       let wheel = e.wheelDelta > 0 ? 1 : -1
@@ -198,8 +195,15 @@ export default {
     canvasResize() {
       this.annTool.brushSize *= this.boxScale
       this.boxScale = 1
-      this.$refs.canvasBox.style.left = '0px'
-      this.$refs.canvasBox.style.top = '0px'
+      this.$refs.canBox.style.left = '0px'
+      this.$refs.canBox.style.top = '0px'
+    },
+    canvasInitsize() {
+      let r = this.$refs.canWrapper.getBoundingClientRect()
+      // console.log(r)
+      if (r.width / r.height < 16 / 9) {
+        this.$refs.canBox.style.height = (r.width / r.height / 16) * 900 + '%'
+      }
     },
     canvasUndo() {
       this.$store.commit('canvasUndo')
@@ -208,35 +212,52 @@ export default {
       this.$store.commit('canvasRedo')
     },
     canvasPushdo() {
-      this.$store.commit(
-        'canvasPushdo',
-        this.cCan_ctx.getImageData(0, 0, 960, 540),
-        this.mCan_ctx.getImageData(0, 0, 960, 540)
-      )
+      this.$store.commit('canvasPushdo', {
+        cCanData: this.cCan_ctx.getImageData(0, 0, 960, 540),
+        mCanData: this.mCan_ctx.getImageData(0, 0, 960, 540),
+      })
     },
     genWater() {
       if (!this.isEmpty) {
+        // console.time('charCodeAt time')
         let mCanData = this.mCan_ctx.getImageData(0, 0, 960, 540)
-        this.$store.commit('storeMCan', this.frameNum, mCanData)
-        let mCanData_comped = pako.deflate(mCanData.data)
+        let mCanData_comped = pako.deflate(mCanData.data, { level: 6 })
+        console.log(mCanData_comped)
         // https://www.cnblogs.com/zhangnan35/p/12433201.html
         let mCanData_b64 = window.btoa(String.fromCharCode(...mCanData_comped))
+        // console.timeLog('charCodeAt time')
         axios
           .post('/api/send/gen_water', {
             num_now: this.frameNum,
             mask_canvas_b64: mCanData_b64,
           })
           .then((res) => {
-            const rawData = window.atob(res.data)
-            const outputArray = new Uint8Array(rawData.length)
-            for (let i = 0; i < rawData.length; ++i) {
-              outputArray[i] = rawData.charCodeAt(i)
-            }
-            let uint8Array = Uint8ClampedArray.from(pako.inflate(outputArray))
+            // console.timeLog('charCodeAt time')
+            // https://www.jianshu.com/p/b48217719c83
+            var strData = atob(res.data)
+            var charData = strData.split('').map((x) => x.charCodeAt(0))
+            var binData = new Uint8Array(charData)
+            console.log(binData)
+            let uint8Array = Uint8ClampedArray.from(pako.inflate(binData))
             let cWaterData = new ImageData(uint8Array, 960, 540)
             this.cWater_ctx.putImageData(cWaterData, 0, 0)
             this.annTool.isShowCWater = true
-            this.$store.commit('storeCWater', this.frameNum, cWaterData)
+            // console.timeLog('charCodeAt time')
+            this.$store.commit('storeCWater', {
+              num: this.frameNum,
+              imgData: cWaterData,
+            })
+
+            this.$store.commit('storeMCan', {
+              num: this.frameNum,
+              imgData: mCanData,
+            })
+            let cCanData = this.cCan_ctx.getImageData(0, 0, 960, 540)
+            this.$store.commit('storeCCan', {
+              num: this.frameNum,
+              imgData: cCanData,
+            })
+            // console.timeEnd('charCodeAt time')
           })
       }
     },
@@ -244,46 +265,30 @@ export default {
   watch: {
     boxScale() {
       this.$nextTick(() => {
-        this.boxHeight = this.$refs.canvasBox.getBoundingClientRect().height
+        this.boxHeight = this.$refs.canBox.getBoundingClientRect().height
       })
     },
     frameNum: {
-      handler(newVal) {
+      handler(num) {
         this.cCan_ctx.clearRect(0, 0, 960, 540)
         this.mCan_ctx.clearRect(0, 0, 960, 540)
         this.isEmpty = true
-        this.frameSrc = this.host + '/api/frame/' + newVal
-        if (this.$store.state.cWater_dic[newVal]) {
+        this.frameSrc = this.host + '/api/frame/' + num
+        if (this.$store.state.cWater_dic[num]) {
           this.annTool.isShowCWater = true
-          this.cWater_ctx.putImageData(
-            this.$store.state.cWater_dic[newVal],
-            0,
-            0
-          )
+          this.cWater_ctx.putImageData(this.$store.getters.getCWater(num), 0, 0)
         } else {
           this.annTool.isShowCWater = false
         }
-        if (this.$store.state.mCan_dic[newVal]) {
-          this.mCan_ctx.putImageData(this.$store.state.mCan_dic[newVal], 0, 0)
-          if (this.$store.state.cCan_dic[newVal]) {
-            this.cCan_ctx.putImageData(this.$store.state.cCan_dic[newVal], 0, 0)
-          } else {
-            let mCanData = this.$store.state.mCan_dic[newVal].data
-            let cCanData = this.cCan_ctx.createImageData(960, 540)
-            for (let i = 0; i < mCanData.length; i += 4) {
-              if (mCanData[i] != 0) {
-                cCanData.data[i] = this.labelLUT[0][mCanData[i]][2]
-                cCanData.data[i + 1] = this.labelLUT[0][mCanData[i]][1]
-                cCanData.data[i + 2] = this.labelLUT[0][mCanData[i]][0]
-                cCanData.data[i + 3] = 255
-              }
-            }
-            this.cCan_ctx.putImageData(cCanData, 0, 0)
-          }
+        if (this.$store.state.mCan_dic[num]) {
+          this.mCan_ctx.putImageData(this.$store.getters.getMCan(num), 0, 0)
+        }
+        if (this.$store.state.cCan_dic[num]) {
+          this.cCan_ctx.putImageData(this.$store.getters.getCCan(num), 0, 0)
         }
         //图片可能被缓存，所以必须send当前帧编号
         axios
-          .post('/api/send/get_frame', { frameNum: this.frameNum })
+          .post('/api/send/get_frame', { frameNum: num })
           .then(function (res) {})
       },
       deep: true,
