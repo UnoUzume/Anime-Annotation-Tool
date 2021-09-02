@@ -49,14 +49,18 @@ export default {
             point[0] + this.chart.getOption().series[0].data[0][0]
         }
       })
+      this.initData()
+    },
+    initData() {
       axios
         .post('/api/get', {
           keys: ['diffValue_cut'],
         })
         .then((res) => {
           let t = res.data.diffValue
+          if (!t) return
           this.diffValue = t.map((value, index) => [index, value])
-          this.updateChart(0)
+          this.updateChart(this.annTool.frameNum)
         })
     },
     updateChart(numToGet) {

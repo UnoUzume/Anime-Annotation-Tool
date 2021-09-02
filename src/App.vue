@@ -1,15 +1,39 @@
 <template>
   <el-container style="height: 100%">
-    <el-header class="page-header" height="24px">
-      <el-row align="middle">
-        <el-col :span="24">
+    <el-header class="page-header" height="28px">
+      <el-row align="middle" style="width: 100%">
+        <el-col :span="8">
           <el-button type="text" icon="el-icon-edit">菜单</el-button>
           <el-button type="text" icon="el-icon-share">保存</el-button>
           <el-button type="text" icon="el-icon-delete">撤销</el-button>
           <el-button type="text" icon="el-icon-search">重做</el-button>
-          <el-button type="text"
-            >上传<i class="el-icon-upload el-icon--right"></i
-          ></el-button>
+        </el-col>
+        <el-col :span="16">
+          <label>笔刷大小</label>
+          <input type="number" min="1" max="50" v-model="annTool.brushSize" />
+          <label>画布</label>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.1"
+            v-model="annTool.cCanAlpha"
+          />
+          <input type="checkbox" v-model="annTool.isShowCCan" />
+          <label>分割结果</label>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.1"
+            v-model="annTool.cWaterAlpha"
+          />
+          <input type="checkbox" v-model="annTool.isShowCWater" />
+          <el-button @click="canvasResize">重置画布</el-button>
+          <el-button @click="canvasClear">清空画布</el-button>
+          <el-button @click="canvasUndo">撤销 {{ undoLength }}</el-button>
+          <el-button @click="canvasRedo">反撤销 {{ redoLength }}</el-button>
+          <el-button @click="genWater">生成分割</el-button>
         </el-col>
       </el-row>
     </el-header>
@@ -36,43 +60,20 @@
             />
           </div>
         </div>
-
-        <label>
-          笔刷大小：
-          <input type="number" min="1" max="50" v-model="annTool.brushSize" />
-        </label>
-        <br />
-        <label>画布：</label>
-        <input
-          type="number"
-          min="0"
-          max="1"
-          step="0.1"
-          v-model="annTool.cCanAlpha"
-        />
-        <input type="checkbox" v-model="annTool.isShowCCan" />
-        <br />
-        <label>分割结果：</label>
-        <input
-          type="number"
-          min="0"
-          max="1"
-          step="0.1"
-          v-model="annTool.cWaterAlpha"
-        />
-        <input type="checkbox" v-model="annTool.isShowCWater" />
-        <br />
-        <el-button @click="canvasResize">重置画布</el-button>
-        <el-button @click="canvasClear">清空画布</el-button>
-        <br />
-        <el-button @click="canvasUndo">撤销</el-button>
-        <el-button @click="canvasRedo">反撤销</el-button>
-        <br />
-        <span> 撤销队列：{{ undoLength }} </span>
-        <br />
-        <span> 反撤销队列：{{ redoLength }} </span>
-        <br />
-        <el-button @click="genWater">生成分割</el-button>
+        <div style="color: royalblue">
+          <span v-if="keyframes">已加载keyframes</span>
+          <span v-else-if="gettingKeyframes"> 正在获取keyframes...</span>
+          <template v-else>
+            <span>未找到keyframes信息</span>
+            <button type="button" @click="genKeyframes">生成keyframes</button>
+          </template>
+        </div>
+        <textarea
+          class="page-body__output"
+          readonly
+          v-model="outputText"
+          ref="output"
+        ></textarea>
       </el-aside>
       <el-container>
         <el-header class="workspace__header" height="54px">
@@ -104,7 +105,6 @@
                   ></el-input-number>
                 </el-form-item>
               </el-form>
-
               <el-radio-group v-model="jumpMethod">
                 <el-radio-button label="0">跳帧</el-radio-button>
                 <el-radio-button label="1">跳步</el-radio-button>
@@ -117,7 +117,7 @@
           <work-space ref="workSpace" />
         </el-main>
         <el-footer class="workspace__footer" height="120px">
-          <e-charts />
+          <e-charts ref="eCharts" />
         </el-footer>
       </el-container>
       <el-aside class="page-body__right" width="250px">
@@ -181,7 +181,7 @@ export default {
         isShowCCan: true,
         cWaterAlpha: 0.7,
         isShowCWater: true,
-        frameNum: 1,
+        frameNum: 0,
         frameStep: 3,
       },
       activeLabel: {},
@@ -199,8 +199,11 @@ export default {
         v: 8,
       },
       keyframes: [],
+      gettingKeyframes: false,
+      outputText: '',
     }
   },
+  inject: ['host'],
   computed: {
     undoLength() {
       return this.$store.state.cCan_undoL.length - 1
@@ -249,18 +252,43 @@ export default {
       this.$refs.workSpace.genWater()
     },
     preKeyframe() {
+      if (!this.keyframes) return this.output('no keyframe')
       // this.annTool.frameNum = this.keyframes
       //   .reverse()
       //   .find((value) => value < this.annTool.frameNum)
       let index = this.keyframes.findIndex(
         (value) => value > this.annTool.frameNum - 1
       )
-      this.annTool.frameNum = this.keyframes[index - 1]
+      this.annTool.frameNum =
+        this.keyframes[index > 0 ? index - 1 : this.keyframes.length - 1]
     },
     nextKeyframe() {
-      this.annTool.frameNum = this.keyframes.find(
-        (value) => value > this.annTool.frameNum
-      )
+      if (!this.keyframes) return this.output('no keyframe')
+      let num = this.keyframes.find((value) => value > this.annTool.frameNum)
+      this.annTool.frameNum = num ? num : this.keyframes[0]
+    },
+    output(str) {
+      this.outputText += str + '\n'
+      this.$refs.output.scrollTop = this.$refs.output.scrollHeight
+    },
+    genKeyframes() {
+      this.gettingKeyframes = true
+      var source = new EventSource(this.host + '/api/ana_keyframes')
+      source.onmessage = (e) => this.output(e.data)
+      source.onerror = (e) => {
+        source.close()
+        this.output('source.error')
+      }
+      source.addEventListener('yield_end', (e) => {
+        source.close()
+        this.output(e.data)
+        this.output('yield_end')
+        // get_frame(parseInt($('.workspace__frame-num').val()))
+        axios
+          .post('/api/get', { keys: ['keyframes'] })
+          .then((res) => (this.keyframes = res.data.keyframes))
+        this.$refs.eCharts.initData()
+      })
     },
   },
   provide() {
@@ -270,16 +298,13 @@ export default {
     }
   },
   mounted() {
-    axios
-      .post('/api/get', {
-        keys: ['keyframes', 'labelList'],
-      })
-      .then((res) => {
-        this.keyframes = res.data.keyframes
-        this.labelList = res.data.labelList
-        this.whenClickLabel(this.labelList[0])
-        this.annTool.frameNum = 0
-      })
+    axios.post('/api/get', { keys: ['keyframes', 'labelList'] }).then((res) => {
+      this.keyframes = res.data.keyframes
+      this.labelList = res.data.labelList
+      this.whenClickLabel(this.labelList[0])
+      this.annTool.frameNum = 1
+      this.annTool.frameNum = 0
+    })
     document.addEventListener('mousemove', (e) => {
       this.$refs.mouseInfo.innerHTML =
         `clientX${e.clientX},clientY${e.clientY}<br>` +
@@ -291,6 +316,7 @@ export default {
     })
     document.addEventListener('keydown', (e) => {
       // console.log(e)
+      this.output('keydown: ' + e.key)
       if (e.key in this.labelKeyMap) {
         this.whenClickLabel(this.labelList[this.labelKeyMap[e.key]])
       } else if (e.key == ' ') {
@@ -318,6 +344,11 @@ export default {
 </script>
 
 <style>
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 html,
 body,
 #app {
@@ -326,8 +357,16 @@ body,
   margin: 0px;
   background: #f5f6f8;
 }
-.page-header .el-button {
-  font-size: 1rem;
+input[type='number'] {
+  width: 3.5em;
+  height: 20px;
+}
+.page-header {
+  font-size: 14px;
+  line-height: 1;
+}
+.el-button.el-button--text {
+  font-size: 16px;
 }
 .el-button {
   min-height: 20px;
@@ -369,10 +408,11 @@ body,
 .page-body__right {
   border-left: 1px solid #c3c3c3;
 }
-
+.el-aside,
 .el-main,
 .el-header,
 .el-footer {
+  position: relative;
   padding: 0px;
 }
 
@@ -451,5 +491,13 @@ body,
   height: 130px;
   background-color: rgb(194, 230, 253);
   line-height: 20px;
+}
+.page-body__output {
+  position: absolute;
+  height: 200px;
+  width: calc(100% - 10px);
+  margin: 5px;
+  bottom: 0px;
+  resize: none;
 }
 </style>

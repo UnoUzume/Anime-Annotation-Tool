@@ -263,6 +263,28 @@ export default {
           })
       }
     },
+    getFrame(num) {
+      this.cCan_ctx.clearRect(0, 0, 960, 540)
+      this.mCan_ctx.clearRect(0, 0, 960, 540)
+      this.isEmpty = true
+      this.frameSrc = this.host + '/api/frame/' + num
+      if (this.$store.state.cWater_dic[num]) {
+        this.annTool.isShowCWater = true
+        this.cWater_ctx.putImageData(this.$store.getters.getCWater(num), 0, 0)
+      } else {
+        this.annTool.isShowCWater = false
+      }
+      if (this.$store.state.mCan_dic[num]) {
+        this.mCan_ctx.putImageData(this.$store.getters.getMCan(num), 0, 0)
+      }
+      if (this.$store.state.cCan_dic[num]) {
+        this.cCan_ctx.putImageData(this.$store.getters.getCCan(num), 0, 0)
+      }
+      //图片可能被缓存，所以必须send当前帧编号
+      axios
+        .post('/api/send/get_frame', { frameNum: num })
+        .then(function (res) {})
+    },
   },
   watch: {
     boxScale() {
@@ -272,26 +294,7 @@ export default {
     },
     'annTool.frameNum': {
       handler(num) {
-        this.cCan_ctx.clearRect(0, 0, 960, 540)
-        this.mCan_ctx.clearRect(0, 0, 960, 540)
-        this.isEmpty = true
-        this.frameSrc = this.host + '/api/frame/' + num
-        if (this.$store.state.cWater_dic[num]) {
-          this.annTool.isShowCWater = true
-          this.cWater_ctx.putImageData(this.$store.getters.getCWater(num), 0, 0)
-        } else {
-          this.annTool.isShowCWater = false
-        }
-        if (this.$store.state.mCan_dic[num]) {
-          this.mCan_ctx.putImageData(this.$store.getters.getMCan(num), 0, 0)
-        }
-        if (this.$store.state.cCan_dic[num]) {
-          this.cCan_ctx.putImageData(this.$store.getters.getCCan(num), 0, 0)
-        }
-        //图片可能被缓存，所以必须send当前帧编号
-        axios
-          .post('/api/send/get_frame', { frameNum: num })
-          .then(function (res) {})
+        this.getFrame(num)
       },
       deep: true,
     },
