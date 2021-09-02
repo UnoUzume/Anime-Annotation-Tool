@@ -1,12 +1,13 @@
 node_modules
 .DS_Store
-dist
+#dist
 dist-ssr
 *.local
 
 /.vscode/
-/*/__pycache__/
+__pycache__/
 
-/annotation/
-/data/
+/annotation/*
+/data/*
+!/data/*.json
 *.mp4

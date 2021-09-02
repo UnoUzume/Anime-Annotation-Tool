@@ -1,0 +1,13 @@
+{
+  "labelList": [
+    { "id": 250, "name": "bg", "bgc": "4e4e4e" },
+    { "id": 1, "name": "赤座灯里", "bgc": "ff584f" },
+    { "id": 2, "name": "岁纳京子", "bgc": "ff802c" },
+    { "id": 3, "name": "船见结衣", "bgc": "85537a" },
+    { "id": 4, "name": "吉川千夏", "bgc": "ffa8c5" },
+    { "id": 5, "name": "杉浦绫乃", "bgc": "9c4462" },
+    { "id": 6, "name": "池田千岁", "bgc": "fae9f4" },
+    { "id": 7, "name": "大室樱子", "bgc": "ffe5ae" },
+    { "id": 8, "name": "古谷向日葵", "bgc": "7296b9" }
+  ]
+}
