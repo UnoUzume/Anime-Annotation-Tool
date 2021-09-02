@@ -1,0 +1,1 @@
+for /r dist\ %%1 in (*) do git update-index --no-skip-worktree "%%1"
