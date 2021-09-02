@@ -7,7 +7,7 @@
           <el-button type="text" icon="el-icon-share">保存</el-button>
           <el-button type="text" icon="el-icon-delete">撤销</el-button>
           <el-button type="text" icon="el-icon-search">重做</el-button>
-          <el-button type="text" size="mini"
+          <el-button type="text"
             >上传<i class="el-icon-upload el-icon--right"></i
           ></el-button>
         </el-col>
@@ -18,8 +18,8 @@
         <div class="ann-label__box">
           <div
             class="ann-label__item"
-            :class="{ active: label.id == active_label.id }"
-            v-for="label in label_list"
+            :class="{ active: label.id == activeLabel.id }"
+            v-for="label in labelList"
             :key="label.id"
             @click="whenClickLabel(label)"
           >
@@ -88,12 +88,7 @@
               >
               <el-button @click="preKeyframe">上一关键帧</el-button>
               <el-button @click="nextKeyframe">下一关键帧</el-button>
-              <el-form
-                :inline="true"
-                :model="formInline"
-                class="workspace__header-form"
-                size="mini"
-              >
+              <el-form :inline="true" style="display: inline-block" size="mini">
                 <el-form-item label="当前帧">
                   <el-input-number
                     v-model="annTool.frameNum"
@@ -179,12 +174,7 @@ export default {
           argForm: {},
         },
       ],
-
       jumpMethod: 2,
-      formInline: {
-        user: '',
-        region: '',
-      },
       annTool: {
         brushSize: 20,
         cCanAlpha: 0.7,
@@ -194,20 +184,8 @@ export default {
         frameNum: 1,
         frameStep: 3,
       },
-      active_label: {},
-      label_list: [
-        { id: 250, name: 'background', bgc: '4e4e4e' },
-        { id: 1, name: '四之宫京夜', bgc: '7c527b' },
-        { id: 2, name: '天使真央', bgc: 'ff9f50' },
-        { id: 3, name: '天使惠', bgc: 'ff8dad' },
-        { id: 4, name: '皇紫音', bgc: 'a47fd6' },
-        { id: 5, name: '绮罗罗·伯恩斯坦', bgc: 'ffe09e' },
-        { id: 6, name: '神无月环', bgc: '9ce06f' },
-      ],
-      show3: true,
-      activeNames: [],
-      checked: true,
-      checked2: true,
+      activeLabel: {},
+      labelList: [],
       value1: 1,
       labelKeyMap: {
         f: 0,
@@ -253,7 +231,7 @@ export default {
     },
     whenClickLabel(label) {
       //https://www.jianshu.com/p/94935f134741
-      Object.assign(this.active_label, label)
+      Object.assign(this.activeLabel, label)
     },
     canvasClear() {
       this.$refs.workSpace.canvasClear()
@@ -288,21 +266,20 @@ export default {
   provide() {
     return {
       annTool: this.annTool,
-      active_label: this.active_label,
+      activeLabel: this.activeLabel,
     }
   },
   mounted() {
     axios
       .post('/api/get', {
-        keys: ['keyframes'],
+        keys: ['keyframes', 'labelList'],
       })
       .then((res) => {
         this.keyframes = res.data.keyframes
+        this.labelList = res.data.labelList
+        this.whenClickLabel(this.labelList[0])
         this.annTool.frameNum = 0
       })
-    this.$nextTick(() => {
-      this.whenClickLabel(this.label_list[0])
-    })
     document.addEventListener('mousemove', (e) => {
       this.$refs.mouseInfo.innerHTML =
         `clientX${e.clientX},clientY${e.clientY}<br>` +
@@ -315,7 +292,7 @@ export default {
     document.addEventListener('keydown', (e) => {
       // console.log(e)
       if (e.key in this.labelKeyMap) {
-        this.whenClickLabel(this.label_list[this.labelKeyMap[e.key]])
+        this.whenClickLabel(this.labelList[this.labelKeyMap[e.key]])
       } else if (e.key == ' ') {
         this.genWater()
       } else if (e.key == 'a') {
@@ -360,9 +337,6 @@ body,
 }
 .el-button + .el-button {
   margin-left: 6px;
-}
-.workspace__header-form {
-  display: inline-block;
 }
 .el-form-item {
   margin-bottom: 5px !important;

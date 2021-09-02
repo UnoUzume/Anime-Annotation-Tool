@@ -21,7 +21,7 @@ def nothing(x):
 
 class Video:
     def __init__(self, path):
-        self.cap= cv2.VideoCapture(path)
+        self.cap = cv2.VideoCapture(path)
         self.filename = Patha(path).stem
         # https://www.it1352.com/1653431.html
         self.ana_keyframes_lock = 0
@@ -92,7 +92,7 @@ class Video:
             diff = cv2.absdiff(background, gray_frame)
             background = gray_frame
             diff_sum = np.sum(diff)
-            pos = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
+            pos = self.cap.get(cv2.CAP_PROP_POS_FRAMES)-1
 
             # if pos > 1000:
             #     break

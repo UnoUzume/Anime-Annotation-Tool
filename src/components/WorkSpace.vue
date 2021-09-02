@@ -36,7 +36,7 @@
         <rect
           :width="annTool.brushSize"
           :height="annTool.brushSize"
-          :style="{ fill: '#' + this.active_label.bgc }"
+          :style="{ fill: '#' + this.activeLabel.bgc }"
         ></rect>
       </svg>
     </div>
@@ -49,7 +49,7 @@ import pako from 'pako'
 export default {
   data() {
     return {
-      labelLUT: null,
+      // labelLUT: null,
       frameSrc: '/static/canvas.png',
       mCan_ctx: null,
       cCan_ctx: null,
@@ -76,7 +76,7 @@ export default {
       }
     },
   },
-  inject: ['host', 'annTool', 'active_label'],
+  inject: ['host', 'annTool', 'activeLabel'],
   created() {
     this.$nextTick(() => {
       // this.cursor = this.$refs.cursor
@@ -108,13 +108,13 @@ export default {
     //   config.baseURL = this.host
     //   return config
     // })
-    axios
-      .post('/api/get', {
-        keys: ['labelLUT'],
-      })
-      .then((res) => {
-        this.labelLUT = res.data.labelLUT
-      })
+    // axios
+    //   .post('/api/get', {
+    //     keys: ['labelLUT'],
+    //   })
+    //   .then((res) => {
+    //     this.labelLUT = res.data.labelLUT
+    //   })
     this.canvasInitsize()
   },
   methods: {
@@ -148,10 +148,10 @@ export default {
       let x = parseInt(((e.clientX - r.left) / r.width) * 960 - halfSize)
       let y = parseInt(((e.clientY - r.top) / r.height) * 540 - halfSize)
       if (!e.shiftKey) {
-        this.cCan_ctx.fillStyle = '#' + this.active_label.bgc
+        this.cCan_ctx.fillStyle = '#' + this.activeLabel.bgc
         this.cCan_ctx.fillRect(x, y, fullSize, fullSize)
 
-        let fill_hex = this.active_label.id.toString(16).padStart(2, '0')
+        let fill_hex = this.activeLabel.id.toString(16).padStart(2, '0')
         this.mCan_ctx.fillStyle = '#' + fill_hex.repeat(3)
         this.mCan_ctx.fillRect(x, y, fullSize, fullSize)
 

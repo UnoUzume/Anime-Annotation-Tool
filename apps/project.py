@@ -28,12 +28,12 @@ class Project:
         with Patha(annConf['configDict'][self.videoStem]).open(encoding="UTF-8") as f:
             videoConf = json.load(f)
 
-        labelList = videoConf["labelList"]
+        self.labelList = videoConf["labelList"]
         lut_b = np.zeros(256, dtype=np.dtype('uint8'))
         lut_g = np.zeros(256, dtype=np.dtype('uint8'))
         lut_r = np.zeros(256, dtype=np.dtype('uint8'))
-        for i in range(len(labelList)):
-            label = labelList[i]
+        for i in range(len(self.labelList)):
+            label = self.labelList[i]
             label_id = int(label["id"])
             lut_b[label_id] = int(label["bgc"][4:6], 16)
             lut_g[label_id] = int(label["bgc"][2:4], 16)
@@ -83,3 +83,24 @@ class Project:
         executor.submit(self.saveMask, frame, maskImg, maskWater)
         cWater_comped = zlib.compress(cWater.tobytes())
         return cWater_comped
+
+    def getAttr(self, keys):
+        result = {}
+        print(keys)
+        for key in keys:
+            if key == 'keyframes':
+                if self.video2.keyframes is not None:
+                    result['keyframes'] = self.video2.keyframes.tolist()
+            elif key == 'diffValue':
+                if self.video2.diffValue is not None:
+                    result['diffValue'] = self.video2.diffValue.tolist()
+            elif key == 'diffValue_cut':
+                if self.video2.diffValue is not None:
+                    temp = self.video2.diffValue.copy()
+                    temp[temp > 3e7] = 3e7
+                    result['diffValue'] = temp.tolist()
+            elif key == 'labelLUT':
+                result['labelLUT'] = self.lut.tolist()
+            elif key == 'labelList':
+                result['labelList'] = self.labelList
+        return result

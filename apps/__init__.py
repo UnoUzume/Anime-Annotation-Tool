@@ -63,23 +63,7 @@ def send(task):
 
 @api.route('/get', methods=['POST'])
 def get():
-    result = {}
-    print(request.json['keys'])
-    for key in request.json['keys']:
-        if key == 'keyframes':
-            if project.video2.keyframes is not None:
-                result['keyframes'] = project.video2.keyframes.tolist()
-        elif key == 'diffValue':
-            if project.video2.diffValue is not None:
-                result['diffValue'] = project.video2.diffValue.tolist()
-        elif key == 'diffValue_cut':
-            if project.video2.diffValue is not None:
-                temp = project.video2.diffValue.copy()
-                temp[temp > 3e7] = 3e7
-                result['diffValue'] = temp.tolist()
-        elif key == 'labelLUT':
-            result['labelLUT'] = project.lut.tolist()
-    return jsonify(result)
+    return jsonify(project.getAttr(request.json['keys']))
 
 
 def event_stream():

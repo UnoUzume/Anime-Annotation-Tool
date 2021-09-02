@@ -52,5 +52,5 @@ def getAssets(filename: str):
 if __name__ == '__main__':
     creatProject()
     print("run done")
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
     # app.run(debug=True, threaded=True)
