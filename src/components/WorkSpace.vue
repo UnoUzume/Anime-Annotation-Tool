@@ -5,11 +5,13 @@
       ref="canBox"
       :style="{ transform: `scale(${this.boxScale})` }"
       @mousedown="whenMouseDown($event)"
+      @click.right.prevent="whenRightClick($event)"
       @mousewheel="whenMouseWheel($event)"
     >
       <img class="workspace__frame" :src="frameSrc" alt="" />
       <canvas
-        class="workspace__color-water"
+        id="colorWater"
+        class="workspace__canvas"
         width="960"
         height="540"
         ref="cWater"
@@ -17,18 +19,37 @@
         v-show="this.annTool.isShowCWater"
       ></canvas>
       <canvas
-        class="workspace__mask-canvas"
+        id="maskCan"
+        class="workspace__canvas"
         width="960"
         height="540"
         ref="mCan"
+        style="opacity: 0"
       ></canvas>
       <canvas
-        class="workspace__color-canvas"
+        id="colorCan"
+        class="workspace__canvas"
         width="960"
         height="540"
         ref="cCan"
         :style="{ opacity: this.annTool.cCanAlpha }"
         v-show="this.annTool.isShowCCan"
+      ></canvas>
+      <canvas
+        id="tempCan1"
+        class="workspace__canvas"
+        width="960"
+        height="540"
+        ref="tCan1"
+        style="opacity: 1"
+      ></canvas>
+      <canvas
+        id="tempCan2"
+        class="workspace__canvas"
+        width="960"
+        height="540"
+        ref="tCan2"
+        style="opacity: 1"
       ></canvas>
     </div>
     <div class="workspace__cursor" :style="cusorStyle" ref="cursor">
@@ -53,6 +74,8 @@ export default {
       frameSrc: '/static/canvas.png',
       mCan_ctx: null,
       cCan_ctx: null,
+      tCan1_ctx: null,
+      tCan2_ctx: null,
       cWater_ctx: null,
       boxHeight: 0,
       boxScale: 1,
@@ -60,6 +83,7 @@ export default {
       isEmpty: false,
       isDrawMoving: false,
       isCanvasMoving: false,
+      isLassoMoving: false,
       canvasXc: 0,
       canvasYc: 0,
     }
@@ -82,12 +106,16 @@ export default {
       // this.cursor = this.$refs.cursor
       this.mCan_ctx = this.$refs.mCan.getContext('2d')
       this.cCan_ctx = this.$refs.cCan.getContext('2d')
+      this.tCan1_ctx = this.$refs.tCan1.getContext('2d')
+      // this.tCan1_ctx.imageSmoothingEnabled = false
+      this.tCan2_ctx = this.$refs.tCan2.getContext('2d')
       this.cWater_ctx = this.$refs.cWater.getContext('2d')
       this.canvasPushdo()
 
       document.body.addEventListener('mousemove', this.cursorMove)
       document.addEventListener('mousemove', this.drawMoving)
       document.addEventListener('mousemove', this.canvasMoving)
+      document.addEventListener('mousemove', this.lassoMoving)
       document.addEventListener('mouseup', this.whenMouseUp)
       this.boxHeight = this.$refs.canBox.getBoundingClientRect().height
     })
@@ -143,8 +171,8 @@ export default {
     drawMoving(e) {
       if (!this.isdrawMoving) return
       let r = this.$refs.cCan.getBoundingClientRect()
-      let fullSize = this.annTool.brushSize
-      let halfSize = this.annTool.brushSize / 2
+      let fullSize = parseInt(this.annTool.brushSize)
+      let halfSize = parseInt(fullSize / 2)
       let x = parseInt(((e.clientX - r.left) / r.width) * 960 - halfSize)
       let y = parseInt(((e.clientY - r.top) / r.height) * 540 - halfSize)
       if (!e.shiftKey) {
@@ -157,17 +185,78 @@ export default {
 
         this.isEmpty = false
       } else {
-        let doubleSize = this.annTool.brushSize * 2
-        x = x - halfSize
-        y = y - halfSize
-        this.cCan_ctx.clearRect(x, y, doubleSize, doubleSize)
-        this.mCan_ctx.clearRect(x, y, doubleSize, doubleSize)
+        this.cCan_ctx.clearRect(x, y, fullSize, fullSize)
+        this.mCan_ctx.clearRect(x, y, fullSize, fullSize)
       }
     },
     canvasMoving(e) {
       if (!this.isCanvasMoving) return
       this.$refs.canBox.style.left = e.pageX - this.canvasXc + 'px'
       this.$refs.canBox.style.top = e.pageY - this.canvasYc + 'px'
+    },
+    whenRightClick(e) {
+      if (!this.isLassoMoving) {
+        this.isLassoMoving = true
+        this.tCan1_ctx.beginPath()
+        let rect = this.$refs.cCan.getBoundingClientRect()
+        let x = parseInt(((e.clientX - rect.left) / rect.width) * 960)
+        let y = parseInt(((e.clientY - rect.top) / rect.height) * 540)
+        this.tCan1_ctx.moveTo(x, y)
+      } else {
+        this.isLassoMoving = false
+        this.tCan1_ctx.fillStyle = '#ffffff'
+        this.tCan1_ctx.fill()
+        let tCan1_data = this.getImageData(this.tCan1_ctx).data
+        let cCan_data = Uint8ClampedArray.from(
+          this.getImageData(this.cCan_ctx).data
+        )
+        let mCan_data = Uint8ClampedArray.from(
+          this.getImageData(this.mCan_ctx).data
+        )
+        let colorR = parseInt(this.activeLabel.bgc.substr(0, 2), 16)
+        let colorG = parseInt(this.activeLabel.bgc.substr(2, 2), 16)
+        let colorB = parseInt(this.activeLabel.bgc.substr(4, 2), 16)
+        for (let index = 0; index < tCan1_data.length; index += 4)
+          if (tCan1_data[index + 3] > 250)
+            if (!e.shiftKey) {
+              cCan_data[index + 0] = colorR
+              cCan_data[index + 1] = colorG
+              cCan_data[index + 2] = colorB
+              cCan_data[index + 3] = 255
+              mCan_data[index + 0] = this.activeLabel.id
+              mCan_data[index + 1] = this.activeLabel.id
+              mCan_data[index + 2] = this.activeLabel.id
+              mCan_data[index + 3] = 255
+            } else {
+              cCan_data[index + 0] = 0
+              cCan_data[index + 1] = 0
+              cCan_data[index + 2] = 0
+              cCan_data[index + 3] = 0
+              mCan_data[index + 0] = 0
+              mCan_data[index + 1] = 0
+              mCan_data[index + 2] = 0
+              mCan_data[index + 3] = 0
+            }
+        if (!e.shiftKey) this.isEmpty = false
+        this.cCan_ctx.putImageData(new ImageData(cCan_data, 960, 540), 0, 0)
+        this.mCan_ctx.putImageData(new ImageData(mCan_data, 960, 540), 0, 0)
+        this.tCan1_ctx.clearRect(0, 0, 960, 540)
+        this.tCan2_ctx.clearRect(0, 0, 960, 540)
+      }
+    },
+    lassoMoving(e) {
+      if (!this.isLassoMoving) return
+      if (e.preventDefault) e.preventDefault()
+      let rect = this.$refs.cCan.getBoundingClientRect()
+      let x = parseInt(((e.clientX - rect.left) / rect.width) * 960)
+      let y = parseInt(((e.clientY - rect.top) / rect.height) * 540)
+      this.tCan1_ctx.lineTo(x, y)
+      this.tCan2_ctx.beginPath()
+      this.tCan2_ctx.lineWidth = '3'
+      this.tCan2_ctx.strokeStyle = 'green'
+      this.tCan2_ctx.moveTo(x - e.movementX, y - e.movementY)
+      this.tCan2_ctx.lineTo(x, y)
+      this.tCan2_ctx.stroke()
     },
     whenMouseWheel(e) {
       let wheel = e.wheelDelta > 0 ? 1 : -1
@@ -187,6 +276,9 @@ export default {
           this.annTool.brushSize = 50
         }
       }
+    },
+    getImageData(ctx) {
+      return ctx.getImageData(0, 0, 960, 540)
     },
     canvasClear() {
       this.cCan_ctx.clearRect(0, 0, 960, 540)
@@ -215,14 +307,14 @@ export default {
     },
     canvasPushdo() {
       this.$store.commit('canvasPushdo', {
-        cCanData: this.cCan_ctx.getImageData(0, 0, 960, 540),
-        mCanData: this.mCan_ctx.getImageData(0, 0, 960, 540),
+        cCanData: this.getImageData(this.cCan_ctx),
+        mCanData: this.getImageData(this.mCan_ctx),
       })
     },
     genWater() {
       if (!this.isEmpty) {
         console.time('genWater time')
-        let mCanData = this.mCan_ctx.getImageData(0, 0, 960, 540)
+        let mCanData = this.getImageData(this.mCan_ctx)
         let mCanData_comped = pako.deflate(mCanData.data, { level: 6 })
         // console.log(mCanData_comped)
         // https://www.cnblogs.com/zhangnan35/p/12433201.html
@@ -254,7 +346,7 @@ export default {
               num: this.annTool.frameNum,
               imgData: mCanData,
             })
-            let cCanData = this.cCan_ctx.getImageData(0, 0, 960, 540)
+            let cCanData = this.getImageData(this.cCan_ctx)
             this.$store.commit('storeCCan', {
               num: this.annTool.frameNum,
               imgData: cCanData,
@@ -324,25 +416,10 @@ export default {
   height: 100%;
   /* width: 100%; */
 }
-.workspace__color-water {
+.workspace__canvas {
   position: absolute;
   left: 0px;
   top: 0px;
-  height: 100%;
-}
-.workspace__mask-canvas {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  height: 100%;
-  opacity: 0;
-}
-.workspace__color-canvas {
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  /* max-width: 100%;
-    max-height: 100%; */
   height: 100%;
 }
 .workspace__cursor {

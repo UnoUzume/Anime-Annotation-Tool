@@ -316,7 +316,7 @@ export default {
     })
     document.addEventListener('keydown', (e) => {
       // console.log(e)
-      this.output('keydown: ' + e.key)
+      if (!e.repeat) this.output('keydown: ' + e.key)
       if (e.key in this.labelKeyMap) {
         this.whenClickLabel(this.labelList[this.labelKeyMap[e.key]])
       } else if (e.key == ' ') {

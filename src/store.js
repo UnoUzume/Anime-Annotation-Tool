@@ -1,6 +1,7 @@
 import { createStore } from 'vuex'
 import pako from 'pako'
 let ClampedArray = Uint8ClampedArray
+let pakoEn = false
 export default createStore({
   state() {
     return {
@@ -33,21 +34,23 @@ export default createStore({
       // console.log('getCCan', state.cWater_dic[num], uint8Array)
       return new ImageData(uint8Array, 960, 540)
     },
-    getUndoMCan: (state, getters) => {
+    getUndoMCan: (state) => {
       return state.mCan_undoL[state.mCan_undoL.length - 1]
     },
     getUndoCCan: (state) => {
       return state.cCan_undoL[state.cCan_undoL.length - 1]
     },
     toImgData: (state) => (array) => {
-      let uint8Array = ClampedArray.from(pako.inflate(array))
-      return new ImageData(uint8Array, 960, 540)
+      if (pakoEn) array = ClampedArray.from(pako.inflate(array))
+      return new ImageData(array, 960, 540)
     },
   },
   mutations: {
     canvasPushdo(state, payload) {
-      state.cCan_undoL.push(pako.deflate(payload.cCanData.data))
-      state.mCan_undoL.push(pako.deflate(payload.mCanData.data))
+      let cCanData = payload.cCanData.data
+      let mCanData = payload.mCanData.data
+      state.cCan_undoL.push(pakoEn ? pako.deflate(cCanData) : cCanData)
+      state.mCan_undoL.push(pakoEn ? pako.deflate(mCanData) : mCanData)
       if (state.cCan_undoL.length > 100) {
         state.cCan_undoL = state.cCan_undoL.slice(50, -1)
         state.mCan_undoL = state.mCan_undoL.slice(50, -1)
