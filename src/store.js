@@ -83,5 +83,10 @@ export default createStore({
     storeCWater(state, payload) {
       state.cWater_dic[payload.num] = pako.deflate(payload.imgData.data)
     },
+    store3Can(state, payload) {
+      state.mCan_dic[payload.num] = pako.deflate(payload.mCanData.data)
+      state.cCan_dic[payload.num] = pako.deflate(payload.cCanData.data)
+      state.cWater_dic[payload.num] = pako.deflate(payload.cWaterData.data)
+    },
   },
 })

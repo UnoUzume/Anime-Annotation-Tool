@@ -47,21 +47,30 @@ def get_frame(frameNum):
 @api.route('/send/<task>', methods=['POST'])
 def send(task):
     # if request.method == 'POST':
-    if task == "get_frame":
+    if task == "getframe":
         myproject.frameNum_gj = int(request.json['frameNum'])
-        return "get_frame ok"
+        return "getframe ok"
+    elif task == "getframe0":
+        frameNum = request.json['frameNum']
+        cCan_comped = base64.b64decode(request.json['cCanData_b64'])
+        mCan_comped = base64.b64decode(request.json['mCanData_b64'])
+        cCan_comped, mCan_comped = myproject.getframe0(
+            frameNum, cCan_comped, mCan_comped)
+        cWater_comped = myproject.genWater(mCan_comped)
+        cCanData_b64 = base64.b64encode(cCan_comped).decode('ascii')
+        mCanData_b64 = base64.b64encode(mCan_comped).decode('ascii')
+        cWaterData_b64 = base64.b64encode(cWater_comped).decode('ascii')
+        return jsonify({"cCanData_b64": cCanData_b64, "mCanData_b64": mCanData_b64, "cWaterData_b64": cWaterData_b64})
     elif task == "gen_water":
-        if 'mask_canvas_b64' in request.json:
-            time_start = time.time()
+        time_start = time.time()
 
-            mCan_comped = base64.b64decode(request.json['mask_canvas_b64'])
-            cWater_comped = myproject.genWater(mCan_comped)
-            base64_str = base64.b64encode(cWater_comped).decode('ascii')
+        mCan_comped = base64.b64decode(request.json['mCanData_b64'])
+        cWater_comped = myproject.genWater(mCan_comped)
+        base64_str = base64.b64encode(cWater_comped).decode('ascii')
 
-            time_end = time.time()
-            print("gen mask: "+str(time_end-time_start))
-            return base64_str
-        return "gen_water error"
+        time_end = time.time()
+        print("gen mask: "+str(time_end-time_start))
+        return base64_str
 
 
 @api.route('/get', methods=['POST'])

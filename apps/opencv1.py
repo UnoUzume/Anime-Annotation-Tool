@@ -19,7 +19,6 @@ class Video:
         self.frame_cache = {}
         self.frame_num_cache = Queue(maxsize=100)
         self.keyframes = []
-        self.frame_bytes_gj = 0
         self.get_frame_lock = 1
         self.executor = ThreadPoolExecutor()
 
@@ -41,18 +40,16 @@ class Video:
         # total = self.cap0.get(7)
         if frame is not None:
             _, img = cv2.imencode(".png", frame)
-            img = img.tobytes()
-            self.frame_bytes_gj = img
-            return img
+            return img.tobytes()
         else:
             return None
 
     def get(self, frame_num) -> np.ndarray:
         if frame_num in self.frame_cache:
-            print("has cache")
+            print("has cache:", frame_num)
             return self.frame_cache[frame_num]
 
-        print("hasnot cache")
+        print("hasnot cache:", frame_num)
         if self.get_frame_lock == 1:
             self.get_frame_lock = 0
             frame_now = self.cap.get(cv2.CAP_PROP_POS_FRAMES)

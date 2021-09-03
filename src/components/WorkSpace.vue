@@ -54,11 +54,14 @@
     </div>
     <div class="workspace__cursor" :style="cusorStyle" ref="cursor">
       <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
-        <rect
-          :width="annTool.brushSize"
-          :height="annTool.brushSize"
+        <circle
+          :cx="annTool.brushSize / 2"
+          :cy="annTool.brushSize / 2"
+          :r="annTool.brushSize / 2"
+          stroke="red"
+          stroke-width="2"
           :style="{ fill: '#' + this.activeLabel.bgc }"
-        ></rect>
+        />
       </svg>
     </div>
   </div>
@@ -80,7 +83,7 @@ export default {
       boxHeight: 0,
       boxScale: 1,
       cursorSize: 20,
-      isEmpty: false,
+      emptyData_b64: '',
       isDrawMoving: false,
       isCanvasMoving: false,
       isLassoMoving: false,
@@ -101,6 +104,7 @@ export default {
     },
   },
   inject: ['host', 'annTool', 'activeLabel'],
+  emits: ['output'],
   created() {
     this.$nextTick(() => {
       // this.cursor = this.$refs.cursor
@@ -110,6 +114,7 @@ export default {
       // this.tCan1_ctx.imageSmoothingEnabled = false
       this.tCan2_ctx = this.$refs.tCan2.getContext('2d')
       this.cWater_ctx = this.$refs.cWater.getContext('2d')
+      this.emptyData_b64 = this.getImageData_b64(this.mCan_ctx)
       this.canvasPushdo()
 
       document.body.addEventListener('mousemove', this.cursorMove)
@@ -165,6 +170,7 @@ export default {
     whenMouseUp(e) {
       if (e.button == 0 && this.isdrawMoving) {
         this.isdrawMoving = false
+        this.putTempData(e.shiftKey)
         this.canvasPushdo()
       } else if (e.button == 1) this.isCanvasMoving = false
     },
@@ -173,21 +179,13 @@ export default {
       let r = this.$refs.cCan.getBoundingClientRect()
       let fullSize = parseInt(this.annTool.brushSize)
       let halfSize = parseInt(fullSize / 2)
-      let x = parseInt(((e.clientX - r.left) / r.width) * 960 - halfSize)
-      let y = parseInt(((e.clientY - r.top) / r.height) * 540 - halfSize)
-      if (!e.shiftKey) {
-        this.cCan_ctx.fillStyle = '#' + this.activeLabel.bgc
-        this.cCan_ctx.fillRect(x, y, fullSize, fullSize)
+      let x = parseInt(((e.clientX - r.left) / r.width) * 960)
+      let y = parseInt(((e.clientY - r.top) / r.height) * 540)
 
-        let fill_hex = this.activeLabel.id.toString(16).padStart(2, '0')
-        this.mCan_ctx.fillStyle = '#' + fill_hex.repeat(3)
-        this.mCan_ctx.fillRect(x, y, fullSize, fullSize)
-
-        this.isEmpty = false
-      } else {
-        this.cCan_ctx.clearRect(x, y, fullSize, fullSize)
-        this.mCan_ctx.clearRect(x, y, fullSize, fullSize)
-      }
+      this.tCan1_ctx.beginPath()
+      this.tCan1_ctx.arc(x, y, halfSize, 0, Math.PI * 2, false)
+      this.tCan1_ctx.fillStyle = '#' + this.activeLabel.bgc
+      this.tCan1_ctx.fill()
     },
     canvasMoving(e) {
       if (!this.isCanvasMoving) return
@@ -206,42 +204,7 @@ export default {
         this.isLassoMoving = false
         this.tCan1_ctx.fillStyle = '#ffffff'
         this.tCan1_ctx.fill()
-        let tCan1_data = this.getImageData(this.tCan1_ctx).data
-        let cCan_data = Uint8ClampedArray.from(
-          this.getImageData(this.cCan_ctx).data
-        )
-        let mCan_data = Uint8ClampedArray.from(
-          this.getImageData(this.mCan_ctx).data
-        )
-        let colorR = parseInt(this.activeLabel.bgc.substr(0, 2), 16)
-        let colorG = parseInt(this.activeLabel.bgc.substr(2, 2), 16)
-        let colorB = parseInt(this.activeLabel.bgc.substr(4, 2), 16)
-        for (let index = 0; index < tCan1_data.length; index += 4)
-          if (tCan1_data[index + 3] > 250)
-            if (!e.shiftKey) {
-              cCan_data[index + 0] = colorR
-              cCan_data[index + 1] = colorG
-              cCan_data[index + 2] = colorB
-              cCan_data[index + 3] = 255
-              mCan_data[index + 0] = this.activeLabel.id
-              mCan_data[index + 1] = this.activeLabel.id
-              mCan_data[index + 2] = this.activeLabel.id
-              mCan_data[index + 3] = 255
-            } else {
-              cCan_data[index + 0] = 0
-              cCan_data[index + 1] = 0
-              cCan_data[index + 2] = 0
-              cCan_data[index + 3] = 0
-              mCan_data[index + 0] = 0
-              mCan_data[index + 1] = 0
-              mCan_data[index + 2] = 0
-              mCan_data[index + 3] = 0
-            }
-        if (!e.shiftKey) this.isEmpty = false
-        this.cCan_ctx.putImageData(new ImageData(cCan_data, 960, 540), 0, 0)
-        this.mCan_ctx.putImageData(new ImageData(mCan_data, 960, 540), 0, 0)
-        this.tCan1_ctx.clearRect(0, 0, 960, 540)
-        this.tCan2_ctx.clearRect(0, 0, 960, 540)
+        this.putTempData(e.shiftKey)
       }
     },
     lassoMoving(e) {
@@ -280,10 +243,62 @@ export default {
     getImageData(ctx) {
       return ctx.getImageData(0, 0, 960, 540)
     },
+    getImageData_b64(ctx) {
+      let canData = ctx.getImageData(0, 0, 960, 540)
+      let canData_comped = pako.deflate(canData.data, { level: 6 })
+      // console.log(mCanData_comped)
+      // https://www.cnblogs.com/zhangnan35/p/12433201.html
+      return window.btoa(String.fromCharCode(...canData_comped))
+    },
+    putTempData(shiftKey) {
+      let tCan1_data = this.getImageData(this.tCan1_ctx).data
+      let cCan_data = Uint8ClampedArray.from(
+        this.getImageData(this.cCan_ctx).data
+      )
+      let mCan_data = Uint8ClampedArray.from(
+        this.getImageData(this.mCan_ctx).data
+      )
+      let colorR = parseInt(this.activeLabel.bgc.substr(0, 2), 16)
+      let colorG = parseInt(this.activeLabel.bgc.substr(2, 2), 16)
+      let colorB = parseInt(this.activeLabel.bgc.substr(4, 2), 16)
+      for (let index = 0; index < tCan1_data.length; index += 4)
+        if (tCan1_data[index + 3] > 250)
+          if (!shiftKey) {
+            cCan_data[index + 0] = colorR
+            cCan_data[index + 1] = colorG
+            cCan_data[index + 2] = colorB
+            cCan_data[index + 3] = 255
+            mCan_data[index + 0] = this.activeLabel.id
+            mCan_data[index + 1] = this.activeLabel.id
+            mCan_data[index + 2] = this.activeLabel.id
+            mCan_data[index + 3] = 255
+          } else {
+            cCan_data[index + 0] = 0
+            cCan_data[index + 1] = 0
+            cCan_data[index + 2] = 0
+            cCan_data[index + 3] = 0
+            mCan_data[index + 0] = 0
+            mCan_data[index + 1] = 0
+            mCan_data[index + 2] = 0
+            mCan_data[index + 3] = 0
+          }
+      this.cCan_ctx.putImageData(new ImageData(cCan_data, 960, 540), 0, 0)
+      this.mCan_ctx.putImageData(new ImageData(mCan_data, 960, 540), 0, 0)
+      this.tCan1_ctx.clearRect(0, 0, 960, 540)
+      this.tCan2_ctx.clearRect(0, 0, 960, 540)
+    },
+    putImageData_b64(ctx, data) {
+      let strData = atob(data)
+      let charData = strData.split('').map((x) => x.charCodeAt(0))
+      let binData = new Uint8Array(charData)
+      // console.log(binData)
+      let uint8Array = Uint8ClampedArray.from(pako.inflate(binData))
+      let canData = new ImageData(uint8Array, 960, 540)
+      ctx.putImageData(canData, 0, 0)
+    },
     canvasClear() {
       this.cCan_ctx.clearRect(0, 0, 960, 540)
       this.mCan_ctx.clearRect(0, 0, 960, 540)
-      this.isEmpty = true
       this.canvasPushdo()
     },
     canvasResize() {
@@ -312,70 +327,78 @@ export default {
       })
     },
     genWater() {
-      if (!this.isEmpty) {
-        console.time('genWater time')
-        let mCanData = this.getImageData(this.mCan_ctx)
-        let mCanData_comped = pako.deflate(mCanData.data, { level: 6 })
-        // console.log(mCanData_comped)
-        // https://www.cnblogs.com/zhangnan35/p/12433201.html
-        let mCanData_b64 = window.btoa(String.fromCharCode(...mCanData_comped))
-        // console.timeLog('genWater time')
-        axios
-          .post('/api/send/gen_water', {
-            num_now: this.annTool.frameNum,
-            mask_canvas_b64: mCanData_b64,
+      let mCanData_b64 = this.getImageData_b64(this.mCan_ctx)
+      if (mCanData_b64 == this.emptyData_b64) return
+      console.time('genWater time')
+      // console.timeLog('genWater time')
+      axios
+        .post('/api/send/gen_water', {
+          frameNum: this.annTool.frameNum,
+          mCanData_b64: mCanData_b64,
+        })
+        .then((res) => {
+          // console.timeLog('genWater time')
+          // https://www.jianshu.com/p/b48217719c83
+          this.putImageData_b64(this.cWater_ctx, res.data)
+          this.annTool.isShowCWater = true
+          // console.timeLog('genWater time')
+          this.$store.commit('store3Can', {
+            num: this.annTool.frameNum,
+            mCanData: this.getImageData(this.mCan_ctx),
+            cCanData: this.getImageData(this.cCan_ctx),
+            cWaterData: this.getImageData(this.cWater_ctx),
           })
-          .then((res) => {
-            // console.timeLog('genWater time')
-            // https://www.jianshu.com/p/b48217719c83
-            var strData = atob(res.data)
-            var charData = strData.split('').map((x) => x.charCodeAt(0))
-            var binData = new Uint8Array(charData)
-            // console.log(binData)
-            let uint8Array = Uint8ClampedArray.from(pako.inflate(binData))
-            let cWaterData = new ImageData(uint8Array, 960, 540)
-            this.cWater_ctx.putImageData(cWaterData, 0, 0)
-            this.annTool.isShowCWater = true
-            // console.timeLog('genWater time')
-            this.$store.commit('storeCWater', {
-              num: this.annTool.frameNum,
-              imgData: cWaterData,
-            })
-
-            this.$store.commit('storeMCan', {
-              num: this.annTool.frameNum,
-              imgData: mCanData,
-            })
-            let cCanData = this.getImageData(this.cCan_ctx)
-            this.$store.commit('storeCCan', {
-              num: this.annTool.frameNum,
-              imgData: cCanData,
-            })
-            console.timeEnd('genWater time')
-          })
-      }
+          console.timeEnd('genWater time')
+        })
     },
     getFrame(num) {
-      this.cCan_ctx.clearRect(0, 0, 960, 540)
-      this.mCan_ctx.clearRect(0, 0, 960, 540)
-      this.isEmpty = true
       this.frameSrc = this.host + '/api/frame/' + num
-      if (this.$store.state.cWater_dic[num]) {
-        this.annTool.isShowCWater = true
-        this.cWater_ctx.putImageData(this.$store.getters.getCWater(num), 0, 0)
+      if (this.annTool.isTracking) {
+        let cCanData_b64 = this.getImageData_b64(this.cCan_ctx)
+        let mCanData_b64 = this.getImageData_b64(this.mCan_ctx)
+        if (mCanData_b64 == this.emptyData_b64) return
+        console.time('getframe0 time')
+        axios
+          .post('/api/send/getframe0', {
+            frameNum: num,
+            cCanData_b64: cCanData_b64,
+            mCanData_b64: mCanData_b64,
+          })
+          .then((res) => {
+            let { cCanData_b64, mCanData_b64, cWaterData_b64 } = res.data
+            this.putImageData_b64(this.cCan_ctx, cCanData_b64)
+            this.putImageData_b64(this.mCan_ctx, mCanData_b64)
+            this.putImageData_b64(this.cWater_ctx, cWaterData_b64)
+            this.annTool.isShowCWater = true
+            // console.timeLog('getframe0 time')
+            this.$store.commit('store3Can', {
+              num: this.annTool.frameNum,
+              mCanData: this.getImageData(this.mCan_ctx),
+              cCanData: this.getImageData(this.cCan_ctx),
+              cWaterData: this.getImageData(this.cWater_ctx),
+            })
+            console.timeEnd('getframe0 time')
+            this.$emit('output', 'auto tracking done')
+          })
       } else {
-        this.annTool.isShowCWater = false
+        this.cCan_ctx.clearRect(0, 0, 960, 540)
+        this.mCan_ctx.clearRect(0, 0, 960, 540)
+        this.canvasPushdo()
+        //图片可能被缓存，所以必须send当前帧编号
+        axios.post('/api/send/getframe', { frameNum: num }).then((res) => {})
+        if (this.$store.state.cWater_dic[num]) {
+          this.annTool.isShowCWater = true
+          this.cWater_ctx.putImageData(this.$store.getters.getCWater(num), 0, 0)
+        } else {
+          this.annTool.isShowCWater = false
+        }
+        if (this.$store.state.mCan_dic[num]) {
+          this.mCan_ctx.putImageData(this.$store.getters.getMCan(num), 0, 0)
+        }
+        if (this.$store.state.cCan_dic[num]) {
+          this.cCan_ctx.putImageData(this.$store.getters.getCCan(num), 0, 0)
+        }
       }
-      if (this.$store.state.mCan_dic[num]) {
-        this.mCan_ctx.putImageData(this.$store.getters.getMCan(num), 0, 0)
-      }
-      if (this.$store.state.cCan_dic[num]) {
-        this.cCan_ctx.putImageData(this.$store.getters.getCCan(num), 0, 0)
-      }
-      //图片可能被缓存，所以必须send当前帧编号
-      axios
-        .post('/api/send/get_frame', { frameNum: num })
-        .then(function (res) {})
     },
   },
   watch: {

@@ -8,6 +8,7 @@ import zlib
 import re
 import io
 import time
+from pathlib import Path
 from . import opencv1, opencv2
 from .base import Patha
 
@@ -22,7 +23,7 @@ class Project:
         self.video2 = opencv2.Video(str(self.videoFPath))
         self.video1.keyframes = self.video2.keyframes
 
-        self.annDPath: Patha = Patha('annotation').joinpath(self.videoStem)
+        self.annDPath: Path = Patha('annotation').joinpath(self.videoStem)
         self.annDPath.mkdir(parents=True, exist_ok=True)
 
         with Patha(annConf['configDict'][self.videoStem]).open(encoding="UTF-8") as f:
@@ -43,28 +44,44 @@ class Project:
         self.frameNum_gj = 0  # frame_num_get_just
         # self.mask_water_dic = {}  # compressed
 
-    def saveFile(self, filename, bytes):
-        fo = open(self.annDPath.joinpath(filename), "wb")
-        fo.write(bytes)
-        fo.close()
+    def savePic(self, picname, pic):
+        filename = self.annDPath.joinpath(str(self.frameNum_gj)+picname)
+        cv2.imwrite(str(filename), pic, [cv2.IMWRITE_PNG_COMPRESSION, 7])
 
-    def saveMask(self, frame, maskImg, maskWater):
+    def saveMask(self, frame, maskImg, mWaterBGR, cWaterBGR):
         time_start = time.time()
-        _, png_data = cv2.imencode('.png', frame)
-        self.saveFile(str(self.frameNum_gj)+"_frame.png", png_data)
-
-        # self.saveFile(str(self.frameNum_gj) +
-        #               "_mask_canvas.bytes", maskImg)
-
-        maskWater = cv2.cvtColor(maskWater, cv2.COLOR_GRAY2RGB)
-        _, png_data = cv2.imencode('.png', maskWater)
-        self.saveFile(str(self.frameNum_gj)+"_mask_water.png", png_data)
-
-        color_water = cv2.LUT(maskWater, self.lut)
-        _, png_data = cv2.imencode('.png', color_water)
-        self.saveFile(str(self.frameNum_gj)+"_color_water.png", png_data)
+        self.savePic("_frame.png", frame)
+        self.savePic("_mCan.png", maskImg)
+        self.savePic("_mWater.png", mWaterBGR)
+        self.savePic("_cWater.png", cWaterBGR)
         time_end = time.time()
         print("save mask: "+str(time_end-time_start))
+
+    def getframe0(self, frameNum, cCan_comped, mCan_comped):
+        prevgray = cv2.cvtColor(self.video1.get(
+            self.frameNum_gj), cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(self.video1.get(frameNum), cv2.COLOR_BGR2GRAY)
+        self.frameNum_gj = frameNum
+        cByte = zlib.decompress(cCan_comped)
+        cImg: np.ndarray = np.frombuffer(
+            cByte, dtype=np.uint8).copy().reshape(540, 960, 4)
+
+        mByte = zlib.decompress(mCan_comped)
+        mImg: np.ndarray = np.frombuffer(
+            mByte, dtype=np.uint8).copy().reshape(540, 960, 4)
+        # https://www.jb51.net/article/176131.htm
+        # 使用Gunnar Farneback算法计算密集光流
+        # shape:(540, 960, 2)
+        flow = cv2.calcOpticalFlowFarneback(
+            prevgray, gray, None, 0.5, 3, 15, 3, 7, 1.5, 0)
+        y, x = np.mgrid[0:540, 0:960]
+        y = np.clip((y-flow[..., 1]).astype(int), 0, 539)
+        x = np.clip((x-flow[..., 0]).astype(int), 0, 959)
+        cImg = cImg[y, x]
+        mImg = mImg[y, x]
+        cCan_comped = zlib.compress(cImg.tobytes())
+        mCan_comped = zlib.compress(mImg.tobytes())
+        return cCan_comped, mCan_comped
 
     def genWater(self, mCan_comped):
         maskByte = zlib.decompress(mCan_comped)
@@ -74,14 +91,15 @@ class Project:
         frame = self.video1.get(self.frameNum_gj)
         frame = cv2.resize(frame, (960, 540))
 
-        maskWater: np.ndarray = cv2.watershed(
+        mWaterImg: np.ndarray = cv2.watershed(
             frame, markers=maskImg.astype("int32"))
-        maskWater = maskWater.astype("uint8")  # -1 -> 255
-        maskWater = cv2.cvtColor(maskWater, cv2.COLOR_GRAY2BGR)
-        cWater = cv2.LUT(maskWater, self.lut)
-        cWater = cv2.cvtColor(cWater, cv2.COLOR_BGR2RGBA)
-        executor.submit(self.saveMask, frame, maskImg, maskWater)
-        cWater_comped = zlib.compress(cWater.tobytes())
+        mWaterImg = mWaterImg.astype("uint8")  # -1 -> 255
+        mWaterBGR = cv2.cvtColor(mWaterImg, cv2.COLOR_GRAY2BGR)
+        cWaterBGR = cv2.LUT(mWaterBGR, self.lut)
+        cWaterRGBA = cv2.cvtColor(cWaterBGR, cv2.COLOR_BGR2RGBA)
+        # executor.submit(self.saveMask, frame, maskImg, mWaterBGR, cWaterBGR)
+        self.saveMask(frame, maskImg, mWaterBGR, cWaterBGR)
+        cWater_comped = zlib.compress(cWaterRGBA.tobytes())
         return cWater_comped
 
     def getAttr(self, keys):

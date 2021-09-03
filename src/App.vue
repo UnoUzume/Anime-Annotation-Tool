@@ -104,17 +104,22 @@
                     :min="1"
                   ></el-input-number>
                 </el-form-item>
+                <el-form-item>
+                  <el-radio-group v-model="annTool.jumpMethod">
+                    <el-radio-button label="0">跳帧</el-radio-button>
+                    <el-radio-button label="1">跳步</el-radio-button>
+                    <el-radio-button label="2">跳关键帧</el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item label="追踪">
+                  <el-switch v-model="annTool.isTracking"></el-switch>
+                </el-form-item>
               </el-form>
-              <el-radio-group v-model="jumpMethod">
-                <el-radio-button label="0">跳帧</el-radio-button>
-                <el-radio-button label="1">跳步</el-radio-button>
-                <el-radio-button label="2">跳关键帧</el-radio-button>
-              </el-radio-group>
             </el-col>
           </el-row>
         </el-header>
         <el-main class="workspace">
-          <work-space ref="workSpace" />
+          <work-space ref="workSpace" v-on:output="output" />
         </el-main>
         <el-footer class="workspace__footer" height="120px">
           <e-charts ref="eCharts" />
@@ -174,7 +179,6 @@ export default {
           argForm: {},
         },
       ],
-      jumpMethod: 2,
       annTool: {
         brushSize: 20,
         cCanAlpha: 0.7,
@@ -183,6 +187,8 @@ export default {
         isShowCWater: true,
         frameNum: 0,
         frameStep: 3,
+        jumpMethod: 2,
+        isTracking: false,
       },
       activeLabel: {},
       labelList: [],
@@ -322,21 +328,28 @@ export default {
       } else if (e.key == ' ') {
         this.genWater()
       } else if (e.key == 'a') {
-        if (this.jumpMethod == 0) this.annTool.frameNum--
-        else if (this.jumpMethod == 1)
+        if (this.annTool.jumpMethod == 0) this.annTool.frameNum--
+        else if (this.annTool.jumpMethod == 1)
           this.annTool.frameNum -= this.annTool.frameStep
-        else this.preKeyframe()
+        else if (this.annTool.jumpMethod == 2) this.preKeyframe()
       } else if (e.key == 'd') {
-        if (this.jumpMethod == 0) this.annTool.frameNum++
-        else if (this.jumpMethod == 1)
+        if (this.annTool.jumpMethod == 0) this.annTool.frameNum++
+        else if (this.annTool.jumpMethod == 1)
           this.annTool.frameNum += this.annTool.frameStep
-        else this.nextKeyframe()
+        else if (this.annTool.jumpMethod == 2) this.nextKeyframe()
       } else if (e.key == 'g') {
         this.canvasClear()
       } else if (e.key == 's') {
         this.annTool.isShowCWater = !this.annTool.isShowCWater
-      } else {
+      } else if (e.key == 'Shift' && !e.repeat) this.annTool.brushSize *= 2
+      else {
         return
+      }
+    })
+    document.addEventListener('keyup', (e) => {
+      if (e.key == 'Shift' && !e.repeat) {
+        this.output('keyup: ' + e.key)
+        this.annTool.brushSize /= 2
       }
     })
   },
@@ -370,6 +383,8 @@ input[type='number'] {
 }
 .el-button {
   min-height: 20px;
+  margin-left: 0px !important;
+  margin-right: 6px !important;
   padding: 0px 7px;
   font-size: 12px;
   border-radius: calc(var(--el-border-radius-base) - 1px);
@@ -388,10 +403,10 @@ input[type='number'] {
   padding-right: 30px !important;
 }
 .el-radio-button__inner {
-  min-height: 20px;
-  padding: 0px 7px;
-  line-height: 20px;
-  font-size: 12px;
+  min-height: 20px !important;
+  padding: 0px 7px !important;
+  line-height: 20px !important;
+  font-size: 12px !important;
   background-color: #fff;
 }
 .page-header {
