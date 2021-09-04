@@ -1,7 +1,7 @@
 <template>
   <cv-collapse-item :name="name">
     <template v-slot:header>
-      <div>Cut</div>
+      <div>cv2.GaussianBlur</div>
     </template>
 
     <el-form ref="form" :model="argForm" label-width="80px" size="mini">

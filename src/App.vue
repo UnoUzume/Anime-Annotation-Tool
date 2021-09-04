@@ -114,6 +114,9 @@
                 <el-form-item label="追踪">
                   <el-switch v-model="annTool.isTracking"></el-switch>
                 </el-form-item>
+                <el-form-item label="预加载">
+                  <el-switch v-model="annTool.isPreGet"></el-switch>
+                </el-form-item>
               </el-form>
             </el-col>
           </el-row>
@@ -133,11 +136,10 @@
           <el-main>
             <el-scrollbar>
               <cv-func v-model="cvFunc" />
-
-              <el-button @click="showfunc">下一关键帧</el-button>
+              <el-button @click="showfunc">展开</el-button>
             </el-scrollbar>
           </el-main>
-          <el-footer height="30px">Footer</el-footer>
+          <el-footer height="30px"></el-footer>
         </el-container>
       </el-aside>
     </el-container>
@@ -189,6 +191,7 @@ export default {
         frameStep: 3,
         jumpMethod: 2,
         isTracking: false,
+        isPreGet: false,
       },
       activeLabel: {},
       labelList: [],
@@ -226,14 +229,26 @@ export default {
     },
   },
   methods: {
-    onSubmit() {
-      console.log('submit!')
-    },
-    handleChange(value) {
-      console.log(value)
-    },
-    doThis(val) {
-      console.log('doThis!' + val)
+    doPreGet() {
+      if (this.annTool.jumpMethod == 0)
+        for (let i = 0; i < 10; i++)
+          new Image().src =
+            this.host + '/api/frame/' + (this.annTool.frameNum + i)
+      else if (this.annTool.jumpMethod == 1)
+        for (let i = 0; i < 10; i++)
+          new Image().src =
+            this.host +
+            '/api/frame/' +
+            (this.annTool.frameNum + i * this.annTool.frameStep)
+      else if (this.annTool.jumpMethod == 2 && this.keyframes) {
+        let index = this.keyframes.findIndex(
+          (value) => value > this.annTool.frameNum
+        )
+        for (let delta = 0; delta < 10; delta++) {
+          new Image().src =
+            this.host + '/api/frame/' + this.keyframes[index + delta]
+        }
+      }
     },
     showfunc() {
       console.log(this.cvFunc)
@@ -322,7 +337,8 @@ export default {
     })
     document.addEventListener('keydown', (e) => {
       // console.log(e)
-      if (!e.repeat) this.output('keydown: ' + e.key)
+      if (e.repeat) return
+      this.output('keydown: ' + e.key)
       if (e.key in this.labelKeyMap) {
         this.whenClickLabel(this.labelList[this.labelKeyMap[e.key]])
       } else if (e.key == ' ') {
@@ -337,11 +353,12 @@ export default {
         else if (this.annTool.jumpMethod == 1)
           this.annTool.frameNum += this.annTool.frameStep
         else if (this.annTool.jumpMethod == 2) this.nextKeyframe()
+        if (this.annTool.isPreGet) this.doPreGet()
       } else if (e.key == 'g') {
         this.canvasClear()
       } else if (e.key == 's') {
         this.annTool.isShowCWater = !this.annTool.isShowCWater
-      } else if (e.key == 'Shift' && !e.repeat) this.annTool.brushSize *= 2
+      } else if (e.key == 'Shift') this.annTool.brushSize *= 2
       else {
         return
       }

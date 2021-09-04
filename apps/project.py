@@ -48,9 +48,11 @@ class Project:
         filename = self.annDPath.joinpath(str(self.frameNum_gj)+picname)
         cv2.imwrite(str(filename), pic, [cv2.IMWRITE_PNG_COMPRESSION, 7])
 
-    def saveMask(self, frame, maskImg, mWaterBGR, cWaterBGR):
+    def saveMask(self, frame, maskImg, mWaterImg, mWaterBGR, cWaterBGR):
         time_start = time.time()
         self.savePic("_frame.png", frame)
+        frame[mWaterImg != 10] = [0, 0, 0]
+        self.savePic("_frameW.png", frame)
         self.savePic("_mCan.png", maskImg)
         self.savePic("_mWater.png", mWaterBGR)
         self.savePic("_cWater.png", cWaterBGR)
@@ -97,8 +99,9 @@ class Project:
         mWaterBGR = cv2.cvtColor(mWaterImg, cv2.COLOR_GRAY2BGR)
         cWaterBGR = cv2.LUT(mWaterBGR, self.lut)
         cWaterRGBA = cv2.cvtColor(cWaterBGR, cv2.COLOR_BGR2RGBA)
-        # executor.submit(self.saveMask, frame, maskImg, mWaterBGR, cWaterBGR)
-        self.saveMask(frame, maskImg, mWaterBGR, cWaterBGR)
+        executor.submit(self.saveMask, frame, maskImg,
+                        mWaterImg, mWaterBGR, cWaterBGR)
+        # self.saveMask(frame, maskImg, mWaterImg, mWaterBGR, cWaterBGR)
         cWater_comped = zlib.compress(cWaterRGBA.tobytes())
         return cWater_comped
 

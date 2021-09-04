@@ -1,5 +1,9 @@
 <template>
-  <div class="workspace__canvas-wrapper" ref="canWrapper">
+  <div
+    class="workspace__canvas-wrapper"
+    style="user-select: none"
+    ref="canWrapper"
+  >
     <div
       class="workspace__canvas-box"
       ref="canBox"
@@ -8,7 +12,7 @@
       @click.right.prevent="whenRightClick($event)"
       @mousewheel="whenMouseWheel($event)"
     >
-      <img class="workspace__frame" :src="frameSrc" alt="" />
+      <img class="workspace__frame" :src="frameSrc" alt="" ref="frame" />
       <canvas
         id="colorWater"
         class="workspace__canvas"
@@ -55,8 +59,8 @@
     <div class="workspace__cursor" :style="cusorStyle" ref="cursor">
       <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
         <circle
-          :cx="annTool.brushSize / 2"
-          :cy="annTool.brushSize / 2"
+          :cx="annTool.brushSize / 2 + 1"
+          :cy="annTool.brushSize / 2 + 1"
           :r="annTool.brushSize / 2"
           stroke="red"
           stroke-width="2"
@@ -70,6 +74,7 @@
 <script>
 import axios from 'axios'
 import pako from 'pako'
+let usingCVJS = false
 export default {
   data() {
     return {
@@ -118,9 +123,7 @@ export default {
       this.canvasPushdo()
 
       document.body.addEventListener('mousemove', this.cursorMove)
-      document.addEventListener('mousemove', this.drawMoving)
-      document.addEventListener('mousemove', this.canvasMoving)
-      document.addEventListener('mousemove', this.lassoMoving)
+      document.addEventListener('mousemove', this.whenMouseMove)
       document.addEventListener('mouseup', this.whenMouseUp)
       this.boxHeight = this.$refs.canBox.getBoundingClientRect().height
     })
@@ -174,23 +177,34 @@ export default {
         this.canvasPushdo()
       } else if (e.button == 1) this.isCanvasMoving = false
     },
-    drawMoving(e) {
-      if (!this.isdrawMoving) return
-      let r = this.$refs.cCan.getBoundingClientRect()
-      let fullSize = parseInt(this.annTool.brushSize)
-      let halfSize = parseInt(fullSize / 2)
-      let x = parseInt(((e.clientX - r.left) / r.width) * 960)
-      let y = parseInt(((e.clientY - r.top) / r.height) * 540)
+    whenMouseMove(e) {
+      if (this.isdrawMoving) {
+        let r = this.$refs.cCan.getBoundingClientRect()
+        let fullSize = parseInt(this.annTool.brushSize)
+        let halfSize = parseInt(fullSize / 2)
+        let x = parseInt(((e.clientX - r.left) / r.width) * 960)
+        let y = parseInt(((e.clientY - r.top) / r.height) * 540)
 
-      this.tCan1_ctx.beginPath()
-      this.tCan1_ctx.arc(x, y, halfSize, 0, Math.PI * 2, false)
-      this.tCan1_ctx.fillStyle = '#' + this.activeLabel.bgc
-      this.tCan1_ctx.fill()
-    },
-    canvasMoving(e) {
-      if (!this.isCanvasMoving) return
-      this.$refs.canBox.style.left = e.pageX - this.canvasXc + 'px'
-      this.$refs.canBox.style.top = e.pageY - this.canvasYc + 'px'
+        this.tCan1_ctx.beginPath()
+        this.tCan1_ctx.arc(x + 1, y + 1, halfSize, 0, Math.PI * 2, false)
+        this.tCan1_ctx.fillStyle = '#' + this.activeLabel.bgc
+        this.tCan1_ctx.fill()
+      } else if (this.isCanvasMoving) {
+        this.$refs.canBox.style.left = e.pageX - this.canvasXc + 'px'
+        this.$refs.canBox.style.top = e.pageY - this.canvasYc + 'px'
+      } else if (this.isLassoMoving) {
+        if (e.preventDefault) e.preventDefault()
+        let rect = this.$refs.cCan.getBoundingClientRect()
+        let x = parseInt(((e.clientX - rect.left) / rect.width) * 960)
+        let y = parseInt(((e.clientY - rect.top) / rect.height) * 540)
+        this.tCan1_ctx.lineTo(x, y)
+        this.tCan2_ctx.beginPath()
+        this.tCan2_ctx.lineWidth = '3'
+        this.tCan2_ctx.strokeStyle = 'green'
+        this.tCan2_ctx.moveTo(x - e.movementX, y - e.movementY)
+        this.tCan2_ctx.lineTo(x, y)
+        this.tCan2_ctx.stroke()
+      }
     },
     whenRightClick(e) {
       if (!this.isLassoMoving) {
@@ -206,20 +220,6 @@ export default {
         this.tCan1_ctx.fill()
         this.putTempData(e.shiftKey)
       }
-    },
-    lassoMoving(e) {
-      if (!this.isLassoMoving) return
-      if (e.preventDefault) e.preventDefault()
-      let rect = this.$refs.cCan.getBoundingClientRect()
-      let x = parseInt(((e.clientX - rect.left) / rect.width) * 960)
-      let y = parseInt(((e.clientY - rect.top) / rect.height) * 540)
-      this.tCan1_ctx.lineTo(x, y)
-      this.tCan2_ctx.beginPath()
-      this.tCan2_ctx.lineWidth = '3'
-      this.tCan2_ctx.strokeStyle = 'green'
-      this.tCan2_ctx.moveTo(x - e.movementX, y - e.movementY)
-      this.tCan2_ctx.lineTo(x, y)
-      this.tCan2_ctx.stroke()
     },
     whenMouseWheel(e) {
       let wheel = e.wheelDelta > 0 ? 1 : -1
@@ -325,6 +325,15 @@ export default {
         cCanData: this.getImageData(this.cCan_ctx),
         mCanData: this.getImageData(this.mCan_ctx),
       })
+    },
+    genWaterJS() {
+      console.time('genWater time js')
+      let src = cv.imread(this.$refs.frame)
+      let markers = cv.imread(this.$refs.mCan).convertTo(markers, cv.CV_32S)
+      cv.cvtColor(src, src, cv.COLOR_RGBA2RGB, 0)
+      cv.watershed(src, markers)
+      cv.imshow(this.$refs.cWater, markers)
+      console.timeEnd('genWater time js')
     },
     genWater() {
       let mCanData_b64 = this.getImageData_b64(this.mCan_ctx)

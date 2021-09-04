@@ -1,7 +1,8 @@
 {
-    "videoPath": "data/GJ3.mp4",
-    "configDict": {
-        "yuri2.2": "data/yuri.json",
-        "GJ3": "data/GJ.json"
-    }
+  "videoPath": "data/san.mp4",
+  "configDict": {
+    "yuri2.2": "data/yuri.json",
+    "GJ3": "data/GJ.json",
+    "san": "data/san.json"
+  }
 }

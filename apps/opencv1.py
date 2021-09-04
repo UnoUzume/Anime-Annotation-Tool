@@ -76,10 +76,15 @@ class Video:
                 del self.frame_cache[frame_num]
 
     def preGet(self, frame_num):
-        for index in range(len(self.keyframes)):
-            if self.keyframes[index] > frame_num:
-                for i in range(10):
-                    if not (self.keyframes[index+i] in self.frame_cache):
-                        print("pre-get: "+str(self.keyframes[index+i]))
-                        self.get(self.keyframes[index+i])
-                return
+        # for index in range(len(self.keyframes)):
+        #     if self.keyframes[index] > frame_num:
+        #         for i in range(10):
+        #             if not (self.keyframes[index+i] in self.frame_cache):
+        #                 print("pre-get: "+str(self.keyframes[index+i]))
+        #                 self.get(self.keyframes[index+i])
+        #         return
+        for i in range(3, 30, 3):
+            if not (frame_num+i in self.frame_cache):
+                print("pre-get: "+str(frame_num+i))
+                self.get(frame_num+i)
+        return
