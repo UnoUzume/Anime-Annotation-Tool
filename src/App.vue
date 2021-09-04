@@ -34,6 +34,12 @@
           <el-button @click="canvasUndo">撤销 {{ undoLength }}</el-button>
           <el-button @click="canvasRedo">反撤销 {{ redoLength }}</el-button>
           <el-button @click="genWater">生成分割</el-button>
+
+          <el-form :inline="true" style="display: inline-block" size="mini">
+            <el-form-item label="使用opencv.js">
+              <el-switch v-model="annTool.isUsingCVJS"></el-switch>
+            </el-form-item>
+          </el-form>
         </el-col>
       </el-row>
     </el-header>
@@ -192,6 +198,8 @@ export default {
         jumpMethod: 2,
         isTracking: false,
         isPreGet: false,
+        isUsingCVJS: false,
+        labelLUT:[]
       },
       activeLabel: {},
       labelList: [],
@@ -270,7 +278,8 @@ export default {
       this.$refs.workSpace.canvasRedo()
     },
     genWater() {
-      this.$refs.workSpace.genWater()
+      if (this.annTool.isUsingCVJS) this.$refs.workSpace.genWaterJS()
+      else this.$refs.workSpace.genWater()
     },
     preKeyframe() {
       if (!this.keyframes) return this.output('no keyframe')
@@ -319,8 +328,9 @@ export default {
     }
   },
   mounted() {
-    axios.post('/api/get', { keys: ['keyframes', 'labelList'] }).then((res) => {
+    axios.post('/api/get', { keys: ['keyframes','labelLUT', 'labelList'] }).then((res) => {
       this.keyframes = res.data.keyframes
+      this.annTool.labelLUT = res.data.labelLUT
       this.labelList = res.data.labelList
       this.whenClickLabel(this.labelList[0])
       this.annTool.frameNum = 1

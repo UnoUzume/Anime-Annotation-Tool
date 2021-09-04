@@ -12,7 +12,13 @@
       @click.right.prevent="whenRightClick($event)"
       @mousewheel="whenMouseWheel($event)"
     >
-      <img class="workspace__frame" :src="frameSrc" alt="" ref="frame" />
+      <img
+        class="workspace__frame"
+        :src="frameSrc"
+        alt=""
+        crossOrigin="anonymous"
+        ref="frame"
+      />
       <canvas
         id="colorWater"
         class="workspace__canvas"
@@ -74,7 +80,6 @@
 <script>
 import axios from 'axios'
 import pako from 'pako'
-let usingCVJS = false
 export default {
   data() {
     return {
@@ -162,7 +167,7 @@ export default {
     whenMouseDown(e) {
       if (e.button == 0) {
         this.isdrawMoving = true
-        this.drawMoving(e)
+        this.whenMouseMove(e)
       } else if (e.button == 1) {
         if (e.preventDefault) e.preventDefault()
         this.canvasXc = e.pageX - this.$refs.canBox.offsetLeft
@@ -326,19 +331,60 @@ export default {
         mCanData: this.getImageData(this.mCan_ctx),
       })
     },
+    printMatInfo(mat, name) {
+      console.log(
+        'mat info of ' +
+          name +
+          '\n' +
+          `width: ${mat.cols}\nheight: ${mat.rows}\n` +
+          `size: ${mat.size().width}*${mat.size().height}\n` +
+          `depth: ${mat.depth()}\nchannels${mat.channels()}\ntype: ${mat.type()}`
+      )
+    },
     genWaterJS() {
-      console.time('genWater time js')
-      let src = cv.imread(this.$refs.frame)
-      let markers = cv.imread(this.$refs.mCan).convertTo(markers, cv.CV_32S)
-      cv.cvtColor(src, src, cv.COLOR_RGBA2RGB, 0)
-      cv.watershed(src, markers)
-      cv.imshow(this.$refs.cWater, markers)
-      console.timeEnd('genWater time js')
+      let srcImg = new Image()
+      srcImg.crossOrigin = 'anonymous'
+      srcImg.onload = () => {
+        console.time('genWater time js')
+        let src = cv.imread(srcImg)
+        this.printMatInfo(src, 'src')
+        let markers = cv.imread(this.$refs.mCan)
+        this.printMatInfo(markers, 'markers')
+        let rgbaPlanes = new cv.MatVector()
+        cv.split(markers, rgbaPlanes)
+        let rChan = rgbaPlanes.get(0)
+        rChan.convertTo(rChan, cv.CV_32S)
+        this.printMatInfo(rChan, 'rChan')
+        cv.cvtColor(src, src, cv.COLOR_RGBA2RGB, 0)
+        cv.watershed(src, rChan)
+        this.printMatInfo(rChan, 'rChan')
+        rChan.convertTo(rChan, cv.CV_8U)
+        this.printMatInfo(rChan, 'rChan')
+        cv.cvtColor(rChan, rChan, cv.COLOR_GRAY2RGBA, 0)
+        this.printMatInfo(rChan, 'rChan')
+        console.log(rChan)
+        console.timeLog('genWater time js')
+        let imgData = new ImageData(new Uint8ClampedArray(rChan.data), 960, 540)
+        for (let i = 0; i < imgData.data.length; i += 4) {
+          let label = imgData.data[i]
+          imgData.data[i + 0] = this.annTool.labelLUT[0][label][2]
+          imgData.data[i + 1] = this.annTool.labelLUT[0][label][1]
+          imgData.data[i + 2] = this.annTool.labelLUT[0][label][0]
+          imgData.data[i + 3] = 255
+        }
+        this.cWater_ctx.putImageData(imgData, 0, 0)
+        // cv.LUT(rChan, this.annTool.labelLUT, rChan)
+        // cv.cvtColor(rChan, rChan, cv.COLOR_BGR2RGB, 0)
+        // cv.imshow(this.$refs.cWater, rChan)
+        console.timeEnd('genWater time js')
+      }
+      srcImg.src = this.host + '/api/frame/' + this.annTool.frameNum
     },
     genWater() {
-      let mCanData_b64 = this.getImageData_b64(this.mCan_ctx)
-      if (mCanData_b64 == this.emptyData_b64) return
       console.time('genWater time')
+      let mCanData_b64 = this.getImageData_b64(this.mCan_ctx)
+      if (mCanData_b64 == this.emptyData_b64)
+        return console.timeEnd('genWater time')
       // console.timeLog('genWater time')
       axios
         .post('/api/send/gen_water', {
@@ -346,11 +392,11 @@ export default {
           mCanData_b64: mCanData_b64,
         })
         .then((res) => {
-          // console.timeLog('genWater time')
+          console.timeLog('genWater time')
           // https://www.jianshu.com/p/b48217719c83
           this.putImageData_b64(this.cWater_ctx, res.data)
           this.annTool.isShowCWater = true
-          // console.timeLog('genWater time')
+          console.timeLog('genWater time')
           this.$store.commit('store3Can', {
             num: this.annTool.frameNum,
             mCanData: this.getImageData(this.mCan_ctx),
